@@ -1,5 +1,5 @@
 -- =================================================================
--- ⚡ Executor Panel - Spawn with 10% Health
+-- ⚡ Executor Panel - Low Health on Damage (10%)
 -- =================================================================
 
 local Players = game:GetService("Players")
@@ -23,42 +23,61 @@ local CurrentThemeName = "Red"
 
 -- States & Logic Variables
 local States = {
-    Spawn10Percent = false, -- สถานะเปิด-ปิดระบบเกิดมาเลือด 10%
-    WalkSpeed = 16,
-    JumpHeight = 50
+    LowHealthOnDamage = false, -- สถานะเปิด-ปิดระบบโดนตีแล้วเลือดเหลือ 10%
 }
 
--- ฟังก์ชันปรับเลือดให้เหลือ 10% เมื่อเกิดใหม่
-local function ApplyLowHealth()
-    if not States.Spawn10Percent then return end
-    
+local healthConnection = nil
+local isProcessing = false
+
+local function SetupLowHealthOnDamage()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid", 5)
+    local humanoid = character:WaitForChild("Humanoid")
     
-    if humanoid then
-        -- หน่วงเวลาเล็กน้อยเพื่อให้เกมโหลดค่า MaxHealth เสร็จสมบูรณ์
-        task.wait(0.1)
-        pcall(function()
-            local maxHp = humanoid.MaxHealth
-            -- เซ็ตเลือดปัจจุบันให้เหลือ 10% ของ MaxHealth
-            humanoid.Health = maxHp * 0.10
-        end)
+    if healthConnection then
+        healthConnection:Disconnect()
+        healthConnection = nil
     end
+    
+    local lastHealth = humanoid.Health
+    
+    healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
+        if States.LowHealthOnDamage and not isProcessing then
+            -- ถ้าเลือดลดลงจากเดิม (แปลว่าโดนดาเมจ) และเลือดยังมากกว่า 0
+            if currentHealth < lastHealth and currentHealth > 0 then
+                isProcessing = true
+                
+                pcall(function()
+                    local maxHp = humanoid.MaxHealth
+                    local targetHp = maxHp * 0.10
+                    
+                    -- ถ้าเลือดปัจจุบันยังมากกว่า 10% ให้บังคับลดลงมาเหลือ 10% ทันที
+                    if currentHealth > targetHp then
+                        humanoid.Health = targetHp
+                    end
+                end)
+                
+                task.wait(0.2) -- หน่วงเวลาป้องกันลูปซ้ำซ้อนชั่วขณะ
+                isProcessing = false
+            end
+        end
+        lastHealth = humanoid.Health
+    end)
 end
 
--- ผูกเข้ากับการเกิดใหม่ (CharacterAdded)
+-- ผูกเข้ากับตัวละครปัจจุบันและตอนเกิดใหม่ (Respawn)
 LocalPlayer.CharacterAdded:Connect(function(char)
-    if States.Spawn10Percent then
-        task.wait(0.3) -- รอตัวละครโหลดแป๊บหนึ่ง
-        ApplyLowHealth()
-    end
+    task.wait(1)
+    SetupLowHealthOnDamage()
 end)
+if LocalPlayer.Character then
+    SetupLowHealthOnDamage()
+end
 
 -- =================================================================
 -- 1. ScreenGui Setup
 -- =================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ExecutorPanel_Spawn10Percent"
+ScreenGui.Name = "ExecutorPanel_LowHealth"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
@@ -72,7 +91,7 @@ OpenButton.Size = UDim2.new(0, 48, 0, 48)
 OpenButton.Position = UDim2.new(0, 20, 0.5, -24)
 OpenButton.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
 OpenButton.BackgroundTransparency = 0.2
-OpenButton.Text = "🩸"
+OpenButton.Text = "⚡"
 OpenButton.TextColor3 = CurrentTheme
 OpenButton.Font = Enum.Font.GothamBold
 OpenButton.TextSize = 20
@@ -127,10 +146,10 @@ Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
 local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(0, 300, 1, 0)
+HeaderTitle.Size = UDim2.new(0, 350, 1, 0)
 HeaderTitle.Position = UDim2.new(0, 16, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "🩸 Spawn with 10% Health Panel"
+HeaderTitle.Text = "⚡ Low Health on Damage (10%) Panel"
 HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeaderTitle.Font = Enum.Font.GothamBold
 HeaderTitle.TextSize = 14
@@ -294,14 +313,14 @@ CreateNavButton("Home", "🏠 Home", 15)
 CreateNavButton("Settings", "⚙️ Settings", 65)
 
 -- =================================================================
--- 6. Page: Home (Spawn 10% Health Controls)
+-- 6. Page: Home (Controls)
 -- =================================================================
 local HomePage = CreatePage("Home")
 
 local HomeTitle = Instance.new("TextLabel")
 HomeTitle.Size = UDim2.new(1, 0, 0, 25)
 HomeTitle.BackgroundTransparency = 1
-HomeTitle.Text = "Spawn Settings"
+HomeTitle.Text = "Combat Settings"
 HomeTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HomeTitle.Font = Enum.Font.GothamBold
 HomeTitle.TextSize = 18
@@ -375,12 +394,9 @@ local function CreateToggleCard(titleText, descText, callback)
     return ToggleBg
 end
 
--- Toggle หลัก: เปิด-ปิด ระบบเกิดมาเลือด 10%
-CreateToggleCard("Spawn with 10% Health", "Automatically sets your health to 10% every time you respawn", function(state)
-    States.Spawn10Percent = state
-    if state then
-        ApplyLowHealth()
-    end
+-- Toggle หลัก: เปิด-ปิด ระบบโดนตีแล้วเลือดลดเหลือ 10%
+CreateToggleCard("Low Health on Damage (10%)", "Instantly drops your health to 10% whenever you take damage", function(state)
+    States.LowHealthOnDamage = state
 end)
 
 -- =================================================================
