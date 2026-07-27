@@ -1,10 +1,9 @@
 -- =================================================================
--- ⚡ Executor Panel - Low Health on Damage (10%)
+-- ⚡ Executor Panel - Permanent 10% Max Health on Damage
 -- =================================================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Theme Color Definitions (7 Colors)
@@ -23,15 +22,22 @@ local CurrentThemeName = "Red"
 
 -- States & Logic Variables
 local States = {
-    LowHealthOnDamage = false, -- สถานะเปิด-ปิดระบบโดนตีแล้วเลือดเหลือ 10%
+    Perm10Health = false, -- สถานะเปิด-ปิดระบบเลือดเหลือ 10% ถาวรเมื่อโดนตี
 }
 
 local healthConnection = nil
 local isProcessing = false
+local originalMaxHealth = nil
 
-local function SetupLowHealthOnDamage()
+local function SetupPermHealth()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local humanoid = character:WaitForChild("Humanoid")
+    
+    -- จำค่า MaxHealth เดิมไว้ก่อนโดนตี
+    task.wait(0.5)
+    if humanoid then
+        originalMaxHealth = humanoid.MaxHealth
+    end
     
     if healthConnection then
         healthConnection:Disconnect()
@@ -41,43 +47,42 @@ local function SetupLowHealthOnDamage()
     local lastHealth = humanoid.Health
     
     healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
-        if States.LowHealthOnDamage and not isProcessing then
-            -- ถ้าเลือดลดลงจากเดิม (แปลว่าโดนดาเมจ) และเลือดยังมากกว่า 0
+        if States.Perm10Health and not isProcessing then
+            -- ถ้าเลือดลดลงจากเดิม (โดนตี) และยังมีชีวิตอยู่
             if currentHealth < lastHealth and currentHealth > 0 then
                 isProcessing = true
                 
                 pcall(function()
-                    local maxHp = humanoid.MaxHealth
-                    local targetHp = maxHp * 0.10
-                    
-                    -- ถ้าเลือดปัจจุบันยังมากกว่า 10% ให้บังคับลดลงมาเหลือ 10% ทันที
-                    if currentHealth > targetHp then
-                        humanoid.Health = targetHp
-                    end
+                    -- ลด MaxHealth และ Health ถาวรให้เหลือ 10% ของค่าเดิม
+                    local newMax = originalMaxHealth * 0.10
+                    humanoid.MaxHealth = newMax
+                    humanoid.Health = newMax
                 end)
-                
-                task.wait(0.2) -- หน่วงเวลาป้องกันลูปซ้ำซ้อนชั่วขณะ
-                isProcessing = false
             end
         end
         lastHealth = humanoid.Health
     end)
 end
 
--- ผูกเข้ากับตัวละครปัจจุบันและตอนเกิดใหม่ (Respawn)
+-- เมื่อตัวละครเกิดใหม่ ให้รีเซ็ตค่ากลับมาปกติก่อน (ถ้ายังเปิดสวิตช์อยู่ จะรอรับดาเมจใหม่ถึงจะลด)
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(1)
-    SetupLowHealthOnDamage()
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    if humanoid and originalMaxHealth then
+        humanoid.MaxHealth = originalMaxHealth
+    end
+    SetupPermHealth()
 end)
+
 if LocalPlayer.Character then
-    SetupLowHealthOnDamage()
+    SetupPermHealth()
 end
 
 -- =================================================================
 -- 1. ScreenGui Setup
 -- =================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ExecutorPanel_LowHealth"
+ScreenGui.Name = "ExecutorPanel_Perm10Health"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
@@ -91,7 +96,7 @@ OpenButton.Size = UDim2.new(0, 48, 0, 48)
 OpenButton.Position = UDim2.new(0, 20, 0.5, -24)
 OpenButton.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
 OpenButton.BackgroundTransparency = 0.2
-OpenButton.Text = "⚡"
+OpenButton.Text = "🩸"
 OpenButton.TextColor3 = CurrentTheme
 OpenButton.Font = Enum.Font.GothamBold
 OpenButton.TextSize = 20
@@ -146,10 +151,10 @@ Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
 local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(0, 350, 1, 0)
+HeaderTitle.Size = UDim2.new(0, 380, 1, 0)
 HeaderTitle.Position = UDim2.new(0, 16, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "⚡ Low Health on Damage (10%) Panel"
+HeaderTitle.Text = "🩸 Perm 10% Max Health on Damage Panel"
 HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeaderTitle.Font = Enum.Font.GothamBold
 HeaderTitle.TextSize = 14
@@ -394,9 +399,9 @@ local function CreateToggleCard(titleText, descText, callback)
     return ToggleBg
 end
 
--- Toggle หลัก: เปิด-ปิด ระบบโดนตีแล้วเลือดลดเหลือ 10%
-CreateToggleCard("Low Health on Damage (10%)", "Instantly drops your health to 10% whenever you take damage", function(state)
-    States.LowHealthOnDamage = state
+-- Toggle หลัก: เปิด-ปิด ระบบลด Max Health ถาวรเหลือ 10% เมื่อโดนตี
+CreateToggleCard("Perm 10% Max Health on Hit", "Permanently shrinks your Max Health to 10% after taking first damage", function(state)
+    States.Perm10Health = state
 end)
 
 -- =================================================================
