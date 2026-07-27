@@ -1,494 +1,169 @@
 -- =================================================================
--- ⚡ Executor Panel - Permanent 10% Max Health on Damage
+-- ⚡ Combined Script: Ultimate UI + Auto Max Ultimate (100%)
 -- =================================================================
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
+local v1 = script.Parent
+local v_u_2 = game:GetService("Players").LocalPlayer
+local v_u_3 = v_u_2.Character or v_u_2.CharacterAdded:Wait()
+local _ = v_u_3.PrimaryPart
+local v_u_4 = v1:FindFirstChild("MagicHealth") or v1:WaitForChild("MagicHealth", 1)
+local v_u_5 = v_u_4:FindFirstChild("Ult") or v_u_4:WaitForChild("Ult", 1)
+local v_u_6 = v_u_4.Health.Bar
+local v7 = workspace.CurrentCamera
+local v_u_8 = false
 
--- Theme Color Definitions (7 Colors)
-local THEMES = {
-    Purple = Color3.fromHex("#8B5CF6"),
-    Blue = Color3.fromHex("#3B82F6"),
-    Green = Color3.fromHex("#22C55E"),
-    Yellow = Color3.fromHex("#EAB308"),
-    Red = Color3.fromHex("#EF4444"),
-    Pink = Color3.fromHex("#EC4899"),
-    Black = Color3.fromHex("#111111")
-}
-
-local CurrentTheme = THEMES.Red
-local CurrentThemeName = "Red"
-
--- States & Logic Variables
-local States = {
-    Perm10Health = false, -- สถานะเปิด-ปิดระบบเลือดเหลือ 10% ถาวรเมื่อโดนตี
-}
-
-local healthConnection = nil
-local isProcessing = false
-local originalMaxHealth = nil
-
-local function SetupPermHealth()
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-    
-    -- จำค่า MaxHealth เดิมไว้ก่อนโดนตี
-    task.wait(0.5)
-    if humanoid then
-        originalMaxHealth = humanoid.MaxHealth
+v_u_4.TextButton.MouseButton1Click:Connect(function()
+    local v9 = v_u_3:FindFirstChild("Communicate") or v_u_3:WaitForChild("Communicate", 5)
+    if v9 then
+        v9:FireServer({
+            ["Goal"] = "KeyPress",
+            ["Key"] = Enum.KeyCode.G,
+            ["MoveDirection"] = v_u_3.Humanoid.MoveDirection
+        })
     end
-    
-    if healthConnection then
-        healthConnection:Disconnect()
-        healthConnection = nil
+end)
+
+local v_u_10 = v_u_4:FindFirstChild("TextLabel") or v_u_4:WaitForChild("TextLabel", 1)
+v_u_10:GetPropertyChangedSignal("Text"):Connect(function()
+    local v11 = v_u_10:FindFirstChild("TextLabel")
+    if v11 then
+        v11.Text = v_u_10.Text
     end
-    
-    local lastHealth = humanoid.Health
-    
-    healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
-        if States.Perm10Health and not isProcessing then
-            -- ถ้าเลือดลดลงจากเดิม (โดนตี) และยังมีชีวิตอยู่
-            if currentHealth < lastHealth and currentHealth > 0 then
-                isProcessing = true
-                
-                pcall(function()
-                    -- ลด MaxHealth และ Health ถาวรให้เหลือ 10% ของค่าเดิม
-                    local newMax = originalMaxHealth * 0.10
-                    humanoid.MaxHealth = newMax
-                    humanoid.Health = newMax
-                end)
-            end
+end)
+
+local function v13()
+    local v12 = v_u_3:GetAttribute("UltimateName")
+    v_u_10.Text = v_u_3:GetAttribute("IceBoss") and "SUB-ZERO SLASH STORM" or v12
+    if v_u_10.Text == "SORCERER" then
+        v_u_4.Visible = false
+    end
+end
+
+v_u_3:GetAttributeChangedSignal("UltimateName"):Connect(v13)
+v_u_3:GetAttributeChangedSignal("IceBoss"):Connect(v13)
+
+if v_u_10 then
+    if v_u_3:GetAttribute("UltimateName") then
+        local v14 = v_u_3:GetAttribute("UltimateName")
+        v_u_10.Text = v_u_3:GetAttribute("IceBoss") and "SUB-ZERO SLASH STORM" or v14
+        if v_u_10.Text == "SORCERER" then
+            v_u_4.Visible = false
         end
-        lastHealth = humanoid.Health
-    end)
-end
-
--- เมื่อตัวละครเกิดใหม่ ให้รีเซ็ตค่ากลับมาปกติก่อน (ถ้ายังเปิดสวิตช์อยู่ จะรอรับดาเมจใหม่ถึงจะลด)
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(1)
-    local humanoid = char:WaitForChild("Humanoid", 5)
-    if humanoid and originalMaxHealth then
-        humanoid.MaxHealth = originalMaxHealth
-    end
-    SetupPermHealth()
-end)
-
-if LocalPlayer.Character then
-    SetupPermHealth()
-end
-
--- =================================================================
--- 1. ScreenGui Setup
--- =================================================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ExecutorPanel_Perm10Health"
-ScreenGui.ResetOnSpawn = false
-pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
-if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
-
--- =================================================================
--- 2. Floating Open/Close Button
--- =================================================================
-local OpenButton = Instance.new("TextButton")
-OpenButton.Name = "FloatingToggleBtn"
-OpenButton.Size = UDim2.new(0, 48, 0, 48)
-OpenButton.Position = UDim2.new(0, 20, 0.5, -24)
-OpenButton.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
-OpenButton.BackgroundTransparency = 0.2
-OpenButton.Text = "🩸"
-OpenButton.TextColor3 = CurrentTheme
-OpenButton.Font = Enum.Font.GothamBold
-OpenButton.TextSize = 20
-OpenButton.Parent = ScreenGui
-
-Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(1, 0)
-local OpenButtonStroke = Instance.new("UIStroke")
-OpenButtonStroke.Thickness = 1.5
-OpenButtonStroke.Color = Color3.fromRGB(255, 255, 255)
-OpenButtonStroke.Transparency = 0.7
-OpenButtonStroke.Parent = OpenButton
-
--- =================================================================
--- 3. Main Frame
--- =================================================================
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 760, 0, 420)
-MainFrame.Position = UDim2.new(0.5, -380, 0.5, -210)
-MainFrame.BackgroundColor3 = Color3.fromHex("#0F0F13")
-MainFrame.BackgroundTransparency = 0.2
-MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
-MainFrame.Parent = ScreenGui
-
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = MainFrame
-
-local MainStroke = Instance.new("UIStroke")
-MainStroke.Thickness = 1.2
-MainStroke.Color = Color3.fromRGB(255, 255, 255)
-MainStroke.Transparency = 0.8
-MainStroke.Parent = MainFrame
-
-MainFrame.Size = UDim2.new(0, 760 * 0.9, 0, 420 * 0.9)
-MainFrame.BackgroundTransparency = 1
-
-TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, 760, 0, 420),
-    BackgroundTransparency = 0.2
-}):Play()
-
--- =================================================================
--- 4. Header
--- =================================================================
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 45)
-Header.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Header.BackgroundTransparency = 0.4
-Header.BorderSizePixel = 0
-Header.Parent = MainFrame
-
-local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(0, 380, 1, 0)
-HeaderTitle.Position = UDim2.new(0, 16, 0, 0)
-HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "🩸 Perm 10% Max Health on Damage Panel"
-HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-HeaderTitle.Font = Enum.Font.GothamBold
-HeaderTitle.TextSize = 14
-HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-HeaderTitle.Parent = Header
-
-local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(0, 150, 1, 0)
-StatusLabel.Position = UDim2.new(1, -220, 0, 0)
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Text = "🟢 Connected"
-StatusLabel.TextColor3 = Color3.fromRGB(34, 197, 94)
-StatusLabel.Font = Enum.Font.GothamMedium
-StatusLabel.TextSize = 12
-StatusLabel.TextXAlignment = Enum.TextXAlignment.Right
-StatusLabel.Parent = Header
-
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Position = UDim2.new(1, -38, 0.5, -15)
-CloseButton.BackgroundTransparency = 1
-CloseButton.Text = "✕"
-CloseButton.TextColor3 = Color3.fromRGB(180, 180, 180)
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 14
-CloseButton.Parent = Header
-
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
-MinimizeButton.Position = UDim2.new(1, -74, 0.5, -15)
-MinimizeButton.BackgroundTransparency = 1
-MinimizeButton.Text = "─"
-MinimizeButton.TextColor3 = Color3.fromRGB(180, 180, 180)
-MinimizeButton.Font = Enum.Font.GothamBold
-MinimizeButton.TextSize = 14
-MinimizeButton.Parent = Header
-
-CloseButton.MouseButton1Click:Connect(function()
-    local tw = TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 760 * 0.9, 0, 420 * 0.9),
-        BackgroundTransparency = 1
-    })
-    tw:Play()
-    tw.Completed:Connect(function() MainFrame.Visible = false end)
-end)
-
-local isMinimized = false
-MinimizeButton.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    local targetSize = isMinimized and UDim2.new(0, 760, 0, 45) or UDim2.new(0, 760, 0, 420)
-    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-end)
-
-OpenButton.MouseButton1Click:Connect(function()
-    if not MainFrame.Visible then
-        MainFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 760 * 0.9, 0, 420 * 0.9)
-        MainFrame.BackgroundTransparency = 1
-        TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 760, 0, 420),
-            BackgroundTransparency = 0.2
-        }):Play()
     else
-        MainFrame.Visible = false
+        v_u_10.Text = "SELECT CHARACTER"
     end
-end)
-
--- =================================================================
--- 5. Sidebar & Navigation
--- =================================================================
-local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 180, 1, -45)
-Sidebar.Position = UDim2.new(0, 0, 0, 45)
-Sidebar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Sidebar.BackgroundTransparency = 0.25
-Sidebar.BorderSizePixel = 0
-Sidebar.Parent = MainFrame
-
-local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -180, 1, -45)
-ContentContainer.Position = UDim2.new(0, 180, 0, 45)
-ContentContainer.BackgroundTransparency = 1
-ContentContainer.ClipsDescendants = true
-ContentContainer.Parent = MainFrame
-
-local Pages = {}
-local ActiveIndicators = {}
-local ThemeElements = {}
-
-local function RegisterThemeColor(obj, property)
-    table.insert(ThemeElements, {Object = obj, Prop = property})
+else
+    warn("Didnt find ultname.")
 end
 
-local function SwitchPage(pageName)
-    for name, page in pairs(Pages) do
-        if name == pageName then
-            page.Visible = true
-            page.Position = UDim2.new(1, 0, 0, 0)
-            TweenService:Create(page, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0, 0, 0, 0)
-            }):Play()
-        else
-            page.Visible = false
+local v_u_15 = nil
+local function v_u_16()
+    if workspace.CurrentCamera.CameraType == Enum.CameraType.Scriptable or (v_u_8 or (v_u_3:FindFirstChild("HideUlt") or v_u_3:GetAttribute("Ulted") and (v_u_3:GetAttribute("Character") == "Bald" or v_u_3:GetAttribute("Character") == "KJ"))) then
+        if not v_u_15 then
+            v_u_15 = true
+            v_u_4:TweenPosition(UDim2.new(0.5, 0, 1, 100), Enum.EasingDirection.InOut, Enum.EasingStyle.Quad, 1, true)
+            return
         end
+    elseif v_u_15 then
+        v_u_4:TweenPosition(UDim2.new(0.5, 0, 1, -90), Enum.EasingDirection.InOut, Enum.EasingStyle.Quad, 1, true)
+        v_u_15 = false
     end
-    for name, ind in pairs(ActiveIndicators) do
-        ind.Visible = (name == pageName)
+end
+
+local v_u_17 = nil
+local function v_u_18()
+    v_u_6:TweenSize(UDim2.new((v_u_17 or v_u_2:GetAttribute("Ultimate")) / 100, 0, 0, 17), nil, nil, 0.4, true)
+    if v_u_2:GetAttribute("Ultimate") >= 100 then
+        v_u_5.Visible = true
+    else
+        v_u_5.Visible = false
     end
 end
 
-local function CreateNavButton(name, displayName, yPos)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, -16, 0, 42)
-    Btn.Position = UDim2.new(0, 8, 0, yPos)
-    Btn.BackgroundTransparency = 1
-    Btn.Text = "      " .. displayName
-    Btn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    Btn.Font = Enum.Font.GothamMedium
-    Btn.TextSize = 13
-    Btn.TextXAlignment = Enum.TextXAlignment.Left
-    Btn.Parent = Sidebar
-    
-    local Indicator = Instance.new("Frame")
-    Indicator.Size = UDim2.new(0, 3, 0, 24)
-    Indicator.Position = UDim2.new(0, 0, 0.5, -12)
-    Indicator.BackgroundColor3 = CurrentTheme
-    Indicator.Visible = (name == "Home")
-    Indicator.Parent = Btn
-    RegisterThemeColor(Indicator, "BackgroundColor3")
-    ActiveIndicators[name] = Indicator
-    
-    Btn.MouseButton1Click:Connect(function() SwitchPage(name) end)
-end
-
-local function CreatePage(name)
-    local Page = Instance.new("ScrollingFrame")
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.ScrollBarThickness = 2
-    Page.Visible = false
-    Page.Parent = ContentContainer
-    
-    local Layout = Instance.new("UIListLayout")
-    Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Layout.Padding = UDim.new(0, 14)
-    Layout.Parent = Page
-    
-    local Padding = Instance.new("UIPadding")
-    Padding.PaddingTop = UDim.new(0, 20)
-    Padding.PaddingLeft = UDim.new(0, 20)
-    Padding.PaddingRight = UDim.new(0, 20)
-    Padding.PaddingBottom = UDim.new(0, 20)
-    Padding.Parent = Page
-    
-    Pages[name] = Page
-    return Page
-end
-
-CreateNavButton("Home", "🏠 Home", 15)
-CreateNavButton("Settings", "⚙️ Settings", 65)
-
--- =================================================================
--- 6. Page: Home (Controls)
--- =================================================================
-local HomePage = CreatePage("Home")
-
-local HomeTitle = Instance.new("TextLabel")
-HomeTitle.Size = UDim2.new(1, 0, 0, 25)
-HomeTitle.BackgroundTransparency = 1
-HomeTitle.Text = "Combat Settings"
-HomeTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-HomeTitle.Font = Enum.Font.GothamBold
-HomeTitle.TextSize = 18
-HomeTitle.TextXAlignment = Enum.TextXAlignment.Left
-HomeTitle.Parent = HomePage
-
-local function CreateToggleCard(titleText, descText, callback)
-    local Card = Instance.new("Frame")
-    Card.Size = UDim2.new(1, 0, 0, 58)
-    Card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    Card.BackgroundTransparency = 0.4
-    Card.Parent = HomePage
-    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 8)
-
-    local LabelFrame = Instance.new("Frame")
-    LabelFrame.Size = UDim2.new(1, -70, 1, 0)
-    LabelFrame.Position = UDim2.new(0, 15, 0, 0)
-    LabelFrame.BackgroundTransparency = 1
-    LabelFrame.Parent = Card
-
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 20)
-    Title.Position = UDim2.new(0, 0, 0, 10)
-    Title.BackgroundTransparency = 1
-    Title.Text = titleText
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 13
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Parent = LabelFrame
-
-    local Desc = Instance.new("TextLabel")
-    Desc.Size = UDim2.new(1, 0, 0, 16)
-    Desc.Position = UDim2.new(0, 0, 0, 30)
-    Desc.BackgroundTransparency = 1
-    Desc.Text = descText
-    Desc.TextColor3 = Color3.fromRGB(160, 160, 160)
-    Desc.Font = Enum.Font.GothamMedium
-    Desc.TextSize = 11
-    Desc.TextXAlignment = Enum.TextXAlignment.Left
-    Desc.Parent = LabelFrame
-
-    local ToggleBg = Instance.new("TextButton")
-    ToggleBg.Size = UDim2.new(0, 44, 0, 24)
-    ToggleBg.Position = UDim2.new(1, -54, 0.5, -12)
-    ToggleBg.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-    ToggleBg.Text = ""
-    ToggleBg.Parent = Card
-    Instance.new("UICorner", ToggleBg).CornerRadius = UDim.new(1, 0)
-
-    local ToggleCircle = Instance.new("Frame")
-    ToggleCircle.Size = UDim2.new(0, 18, 0, 18)
-    ToggleCircle.Position = UDim2.new(0, 3, 0.5, -9)
-    ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleCircle.Parent = ToggleBg
-    Instance.new("UICorner", ToggleCircle).CornerRadius = UDim.new(1, 0)
-
-    local toggled = false
-    ToggleBg.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        local goalPos = toggled and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-        local goalColor = toggled and CurrentTheme or Color3.fromRGB(45, 45, 55)
-        
-        TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {Position = goalPos}):Play()
-        TweenService:Create(ToggleBg, TweenInfo.new(0.2), {BackgroundColor3 = goalColor}):Play()
-        
-        callback(toggled)
-    end)
-
-    RegisterThemeColor(ToggleBg, "BackgroundColor3")
-    return ToggleBg
-end
-
--- Toggle หลัก: เปิด-ปิด ระบบลด Max Health ถาวรเหลือ 10% เมื่อโดนตี
-CreateToggleCard("Perm 10% Max Health on Hit", "Permanently shrinks your Max Health to 10% after taking first damage", function(state)
-    States.Perm10Health = state
-end)
-
--- =================================================================
--- 7. Page: Settings (Theme Customization)
--- =================================================================
-local SettingsPage = CreatePage("Settings")
-
-local SettingsTitle = Instance.new("TextLabel")
-SettingsTitle.Size = UDim2.new(1, 0, 0, 25)
-SettingsTitle.BackgroundTransparency = 1
-SettingsTitle.Text = "Theme Customization"
-SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-SettingsTitle.Font = Enum.Font.GothamBold
-SettingsTitle.TextSize = 18
-SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
-SettingsTitle.Parent = SettingsPage
-
-local ThemeCard = Instance.new("Frame")
-ThemeCard.Size = UDim2.new(1, 0, 0, 95)
-ThemeCard.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-ThemeCard.BackgroundTransparency = 0.4
-ThemeCard.Parent = SettingsPage
-Instance.new("UICorner", ThemeCard).CornerRadius = UDim.new(0, 8)
-
-local ThemeDesc = Instance.new("TextLabel")
-ThemeDesc.Size = UDim2.new(1, -30, 0, 20)
-ThemeDesc.Position = UDim2.new(0, 15, 0, 12)
-ThemeDesc.BackgroundTransparency = 1
-ThemeDesc.Text = "Select Theme Color (7 Colors Available)"
-ThemeDesc.TextColor3 = Color3.fromRGB(180, 180, 180)
-ThemeDesc.Font = Enum.Font.GothamMedium
-ThemeDesc.TextSize = 12
-ThemeDesc.TextXAlignment = Enum.TextXAlignment.Left
-ThemeDesc.Parent = ThemeCard
-
-local ColorContainer = Instance.new("Frame")
-ColorContainer.Size = UDim2.new(1, -30, 0, 38)
-ColorContainer.Position = UDim2.new(0, 15, 0, 42)
-ColorContainer.BackgroundTransparency = 1
-ColorContainer.Parent = ThemeCard
-
-local ColorLayout = Instance.new("UIListLayout")
-ColorLayout.FillDirection = Enum.FillDirection.Horizontal
-ColorLayout.Padding = UDim.new(0, 10)
-ColorLayout.Parent = ColorContainer
-
-local function CreateColorButton(colorName, colorValue)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0, 36, 0, 36)
-    Btn.BackgroundColor3 = colorValue
-    Btn.Text = ""
-    Btn.Parent = ColorContainer
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(1, 0)
-    
-    local Stroke = Instance.new("UIStroke")
-    Stroke.Thickness = 2
-    Stroke.Color = Color3.fromRGB(255, 255, 255)
-    Stroke.Transparency = (colorName == CurrentThemeName) and 0 or 1
-    Stroke.Parent = Btn
-    
-    Btn.MouseButton1Click:Connect(function()
-        CurrentThemeName = colorName
-        for _, child in ipairs(ColorContainer:GetChildren()) do
-            if child:IsA("TextButton") and child:FindFirstChild("UIStroke") then
-                child.UIStroke.Transparency = (child == Btn) and 0 or 1
+v_u_3:GetAttributeChangedSignal("Ulted"):Connect(function(_)
+    if v_u_3:GetAttribute("Ulted") then
+        if v_u_3:GetAttribute("Character") == "Bald" or v_u_3:GetAttribute("Character") == "KJ" then
+            return
+        elseif v_u_3:GetAttribute("UltimateTime") then
+            local v_u_19 = tick()
+            local v_u_20 = false
+            v_u_17 = 100
+            v_u_18()
+            v_u_8 = true
+            v_u_16()
+            local v_u_21 = nil
+            v_u_21 = v_u_2.Backpack.ChildAdded:Connect(function(p22)
+                if tick() - v_u_19 > 10 then
+                    return v_u_21:Disconnect()
+                end
+                if p22:IsA("Tool") and game:GetService("CollectionService"):HasTag(p22, "Ultimate" .. v_u_2.Name) then
+                    v_u_20 = true
+                    return v_u_21:Disconnect()
+                end
+            end)
+            local v23 = v_u_21
+            repeat
+                task.wait()
+            until v_u_20 or tick() - v_u_19 > 10
+            v_u_8 = nil
+            v_u_16()
+            if v23 then
+                v23:Disconnect()
             end
-        end
-        
-        local twInfo = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        for _, item in ipairs(ThemeElements) do
-            pcall(function()
-                TweenService:Create(item.Object, twInfo, {[item.Prop] = colorValue}):Play()
+            if tick() - v_u_19 > 10 then
+                v_u_17 = nil
+                return v_u_18()
+            end
+            local v_u_24 = Instance.new("NumberValue")
+            v_u_24.Value = 1
+            v_u_24:GetPropertyChangedSignal("Value"):Connect(function()
+                v_u_17 = v_u_24.Value * 100
+                v_u_18()
+            end)
+            local v_u_25 = v_u_3.PrimaryPart
+            local v_u_26 = nil
+            v_u_26 = v_u_25:GetAttributeChangedSignal("fill"):Connect(function()
+                if v_u_3:GetAttribute("CanCosmic") and not v_u_3:FindFirstChild("CosmicTriggered") then
+                    v_u_24.Value = 1
+                else
+                    local v27 = v_u_25:GetAttribute("fill")
+                    if not v27 or v27 <= 0 then
+                        v_u_17 = nil
+                        v_u_24:Destroy()
+                        v_u_24 = nil
+                        v_u_26:Disconnect()
+                        return v_u_18()
+                    end
+                    v_u_24.Value = v27
+                end
             end)
         end
-        CurrentTheme = colorValue
-        TweenService:Create(OpenButton, twInfo, {TextColor3 = colorValue}):Play()
-    end)
+    else
+        return
+    end
+end)
+
+v_u_2:GetAttributeChangedSignal("Ultimate"):Connect(v_u_18)
+
+if (v_u_2:GetAttribute("Ultimate") or 0) >= 100 then
+    v_u_5.Visible = true
 end
 
-CreateColorButton("Red", THEMES.Red)
-CreateColorButton("Purple", THEMES.Purple)
-CreateColorButton("Blue", THEMES.Blue)
-CreateColorButton("Green", THEMES.Green)
-CreateColorButton("Yellow", THEMES.Yellow)
-CreateColorButton("Pink", THEMES.Pink)
-CreateColorButton("Black", THEMES.Black)
+v7:GetPropertyChangedSignal("CameraType"):Connect(v_u_16)
+v_u_3:GetAttributeChangedSignal("Ulted"):Connect(v_u_16)
+v_u_3.ChildAdded:Connect(v_u_16)
+v_u_3.ChildRemoved:Connect(v_u_16)
+v_u_6.Size = UDim2.new((v_u_2:GetAttribute("Ultimate") or 0) / 100, 0, 0, 17)
 
-RegisterThemeColor(OpenButton, "TextColor3")
-
-SwitchPage("Home")
+-- =================================================================
+-- ⚡ เพิ่มระบบออโต้ปั๊มหลอดอัลติเมทให้เต็ม 100% ตลอดเวลาตรงนี้
+-- =================================================================
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            if v_u_2:GetAttribute("Ultimate") ~= nil then
+                v_u_2:SetAttribute("Ultimate", 100)
+            end
+        end)
+    end
+end)
