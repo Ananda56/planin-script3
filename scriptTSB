@@ -1,5 +1,5 @@
 -- =================================================================
--- ⚡ Executor Panel - Auto Die on Damage
+-- ⚡ Executor Panel - Spawn with 10% Health
 -- =================================================================
 
 local Players = game:GetService("Players")
@@ -18,70 +18,47 @@ local THEMES = {
     Black = Color3.fromHex("#111111")
 }
 
-local CurrentTheme = THEMES.Red -- ตั้งค่าเริ่มต้นเป็นสีแดงให้เข้ากับระบบตาย
+local CurrentTheme = THEMES.Red
 local CurrentThemeName = "Red"
 
 -- States & Logic Variables
 local States = {
-    AutoDie = false,      -- สถานะเปิด-ปิดระบบตายอัตโนมัติ
+    Spawn10Percent = false, -- สถานะเปิด-ปิดระบบเกิดมาเลือด 10%
     WalkSpeed = 16,
     JumpHeight = 50
 }
 
--- ตัวแปรเก็บ Connection ของ Health เพื่อดักจับตอนเลือดลด (โดนดาเมจ)
-local healthConnection = nil
-local isProcessingDeath = false
-
-local function SetupAutoDie()
+-- ฟังก์ชันปรับเลือดให้เหลือ 10% เมื่อเกิดใหม่
+local function ApplyLowHealth()
+    if not States.Spawn10Percent then return end
+    
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
+    local humanoid = character:WaitForChild("Humanoid", 5)
     
-    if healthConnection then
-        healthConnection:Disconnect()
-        healthConnection = nil
+    if humanoid then
+        -- หน่วงเวลาเล็กน้อยเพื่อให้เกมโหลดค่า MaxHealth เสร็จสมบูรณ์
+        task.wait(0.1)
+        pcall(function()
+            local maxHp = humanoid.MaxHealth
+            -- เซ็ตเลือดปัจจุบันให้เหลือ 10% ของ MaxHealth
+            humanoid.Health = maxHp * 0.10
+        end)
     end
-    
-    local lastHealth = humanoid.Health
-    
-    -- ดักฟังเหตุการณ์เมื่อเลือดเปลี่ยนแปลง
-    healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
-        if States.AutoDie and not isProcessingDeath then
-            -- ถ้าเลือดลดลงจากเดิม (แปลว่าโดนดาเมจ) และตัวละครยังไม่ตาย
-            if currentHealth < lastHealth and currentHealth > 0 then
-                isProcessingDeath = true
-                
-                -- หน่วงเวลา 0.5 วินาที ตามที่ต้องการ
-                task.wait(0.5)
-                
-                -- สั่งให้ตัวละครตายทันที (เซ็ต Health เป็น 0 หรือทำลาย Humanoid)
-                pcall(function()
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                        LocalPlayer.Character.Humanoid.Health = 0
-                    end
-                end)
-                
-                task.wait(1) -- กันลูปซ้ำซ้อนขณะเกิดใหม่
-                isProcessingDeath = false
-            end
-        end
-        lastHealth = humanoid.Health
-    end)
 end
 
--- ผูกเข้ากับตัวละครปัจจุบันและตอนเกิดใหม่ (Respawn)
+-- ผูกเข้ากับการเกิดใหม่ (CharacterAdded)
 LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(1)
-    SetupAutoDie()
+    if States.Spawn10Percent then
+        task.wait(0.3) -- รอตัวละครโหลดแป๊บหนึ่ง
+        ApplyLowHealth()
+    end
 end)
-if LocalPlayer.Character then
-    SetupAutoDie()
-end
 
 -- =================================================================
 -- 1. ScreenGui Setup
 -- =================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ExecutorPanel_AutoDie"
+ScreenGui.Name = "ExecutorPanel_Spawn10Percent"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
@@ -95,7 +72,7 @@ OpenButton.Size = UDim2.new(0, 48, 0, 48)
 OpenButton.Position = UDim2.new(0, 20, 0.5, -24)
 OpenButton.BackgroundColor3 = Color3.fromRGB(15, 15, 19)
 OpenButton.BackgroundTransparency = 0.2
-OpenButton.Text = "💀"
+OpenButton.Text = "🩸"
 OpenButton.TextColor3 = CurrentTheme
 OpenButton.Font = Enum.Font.GothamBold
 OpenButton.TextSize = 20
@@ -153,7 +130,7 @@ local HeaderTitle = Instance.new("TextLabel")
 HeaderTitle.Size = UDim2.new(0, 300, 1, 0)
 HeaderTitle.Position = UDim2.new(0, 16, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "💀 Auto Die on Damage Panel"
+HeaderTitle.Text = "🩸 Spawn with 10% Health Panel"
 HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeaderTitle.Font = Enum.Font.GothamBold
 HeaderTitle.TextSize = 14
@@ -317,14 +294,14 @@ CreateNavButton("Home", "🏠 Home", 15)
 CreateNavButton("Settings", "⚙️ Settings", 65)
 
 -- =================================================================
--- 6. Page: Home (Auto Die Controls)
+-- 6. Page: Home (Spawn 10% Health Controls)
 -- =================================================================
 local HomePage = CreatePage("Home")
 
 local HomeTitle = Instance.new("TextLabel")
 HomeTitle.Size = UDim2.new(1, 0, 0, 25)
 HomeTitle.BackgroundTransparency = 1
-HomeTitle.Text = "Combat Settings"
+HomeTitle.Text = "Spawn Settings"
 HomeTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HomeTitle.Font = Enum.Font.GothamBold
 HomeTitle.TextSize = 18
@@ -398,9 +375,12 @@ local function CreateToggleCard(titleText, descText, callback)
     return ToggleBg
 end
 
--- Toggle หลัก: เปิด-ปิด ระบบโดนดาเมจแล้วตายหลัง 0.5 วิ
-CreateToggleCard("Auto Die on Damage", "Waits 0.5 seconds after taking damage, then instantly dies", function(state)
-    States.AutoDie = state
+-- Toggle หลัก: เปิด-ปิด ระบบเกิดมาเลือด 10%
+CreateToggleCard("Spawn with 10% Health", "Automatically sets your health to 10% every time you respawn", function(state)
+    States.Spawn10Percent = state
+    if state then
+        ApplyLowHealth()
+    end
 end)
 
 -- =================================================================
