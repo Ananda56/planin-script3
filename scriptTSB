@@ -1,5 +1,5 @@
 -- =================================================================
--- ⚡ Executor Panel - Auto Die on Damage & Player Launcher
+-- ⚡ Executor Panel - Auto Die on Damage & Extreme Target Launcher
 -- =================================================================
 
 local Players = game:GetService("Players")
@@ -24,8 +24,8 @@ local CurrentThemeName = "Red"
 -- States & Logic Variables
 local States = {
     AutoDie = false,
-    TargetPlayer = nil, -- เก็บชื่อผู้เล่นเป้าหมายที่จะพุ่งไปชน
-    LaunchPower = 5000  -- ความแรงในการซัดออกนอกโลก
+    TargetPlayer = "",
+    LaunchPower = 85000 -- เพิ่มความแรงสุดขีดเพื่อให้เป้าหมายตัวปลิวหายไปจากแมพทันทีที่ชน
 }
 
 local healthConnection = nil
@@ -71,10 +71,23 @@ if LocalPlayer.Character then
     SetupAutoDie()
 end
 
--- ฟังก์ชันสำหรับวาร์ปไปชนเป้าหมายแล้วส่งเป้าหมายปลิวออกนอกโลก
+-- ฟังก์ชันวาร์ปไปกระแทกเป้าหมายแบบรุนแรงเพื่อให้ตัวปลิวทะลุมิติ/นอกโลก
 local function LaunchTarget()
     if not States.TargetPlayer or States.TargetPlayer == "" then return end
-    local targetPlr = Players:FindFirstChild(States.TargetPlayer)
+    
+    local targetPlr = nil
+    local searchName = string.lower(States.TargetPlayer)
+    
+    -- ระบบค้นหาชื่อแบบรองรับทั้งพิมพ์ตัวเล็ก-ใหญ่ หรือพิมพ์แค่บางส่วนของชื่อ
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            if string.lower(p.Name) == searchName or string.lower(p.DisplayName) == searchName or string.sub(string.lower(p.Name), 1, #searchName) == searchName then
+                targetPlr = p
+                break
+            end
+        end
+    end
+    
     if not targetPlr or not targetPlr.Character then return end
     
     local myChar = LocalPlayer.Character
@@ -83,19 +96,36 @@ local function LaunchTarget()
     if not myChar or not targetChar then return end
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
     
     if myRoot and targetRoot then
-        -- 1. วาร์ปไปหาเป้าหมายทันที
-        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 1)
+        -- 1. ยกเลิกสถานะนั่ง/แกล้งตายของเป้าหมายชั่วคราว
+        if targetHumanoid then
+            targetHumanoid.PlatformStand = false
+        end
         
-        -- 2. ใส่แรงกระแทกมหาศาล (Velocity / BodyVelocity) ให้เป้าหมายพุ่งขึ้นฟ้า/นอกโลก
+        -- 2. วาร์ปตัวเราไปทับตำแหน่งเป้าหมายพอดีเป๊ะเพื่อสร้างแรงปะทะ (Collision)
+        myRoot.CFrame = targetRoot.CFrame
+        
+        -- 3. เสกแรงกระแทกมหาศาล (LinearVelocity / BodyVelocity + AngularVelocity เพื่อให้หมุนเคว้งคว้างตัวปลิว)
+        local attachment = Instance.new("Attachment", targetRoot)
+        
         local bv = Instance.new("BodyVelocity")
         bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bv.Velocity = Vector3.new(0, States.LaunchPower, 0) + (targetRoot.Position - myRoot.Position).Unit * (States.LaunchPower / 2)
+        -- ดีดเป้าหมายพุ่งขึ้นฟ้าและพุ่งออกด้านหน้าอย่างรุนแรง
+        bv.Velocity = (targetRoot.CFrame.LookVector * States.LaunchPower) + Vector3.new(0, States.LaunchPower * 1.5, 0)
         bv.Parent = targetRoot
         
-        task.delay(0.2, function()
+        local bav = Instance.new("BodyAngularVelocity")
+        bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bav.AngularVelocity = Vector3.new(math.random(50, 200), math.random(50, 200), math.random(50, 200))
+        bav.Parent = targetRoot
+        
+        -- ทำลายแรงเหวี่ยงหลังจากผ่านไป 0.6 วินาที (เพื่อให้เป้าหมายปลิวหายลับไป)
+        task.delay(0.6, function()
             if bv then bv:Destroy() end
+            if bav then bav:Destroy() end
+            if attachment then attachment:Destroy() end
         end)
     end
 end
@@ -173,10 +203,10 @@ Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
 local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(0, 350, 1, 0)
+HeaderTitle.Size = UDim2.new(0, 380, 1, 0)
 HeaderTitle.Position = UDim2.new(0, 16, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "💀 Auto Die & Target Launcher Panel"
+HeaderTitle.Text = "💀 Auto Die & Extreme Target Launcher"
 HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeaderTitle.Font = Enum.Font.GothamBold
 HeaderTitle.TextSize = 14
@@ -427,7 +457,7 @@ CreateToggleCard("Auto Die on Damage", "Waits 0.5 seconds after taking damage, t
 end)
 
 -- =================================================================
--- 6.1 Page: Target Launcher (เลือกคนที่จะพุ่งไปชนให้ปลิว)
+-- 6.1 Page: Target Launcher (ส่งเป้าหมายตัวปลิวออกนอกโลก)
 -- =================================================================
 local TargetPage = CreatePage("Target")
 
@@ -441,7 +471,6 @@ TargetTitle.TextSize = 18
 TargetTitle.TextXAlignment = Enum.TextXAlignment.Left
 TargetTitle.Parent = TargetPage
 
--- Card เลือกชื่อเป้าหมาย
 local TargetCard = Instance.new("Frame")
 TargetCard.Size = UDim2.new(1, 0, 0, 75)
 TargetCard.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
@@ -453,7 +482,7 @@ local TargetCardDesc = Instance.new("TextLabel")
 TargetCardDesc.Size = UDim2.new(1, -30, 0, 20)
 TargetCardDesc.Position = UDim2.new(0, 15, 0, 10)
 TargetCardDesc.BackgroundTransparency = 1
-TargetCardDesc.Text = "Enter Target Player Name (Exact or Full Name)"
+TargetCardDesc.Text = "Enter Target Player Name (Full or Partial)"
 TargetCardDesc.TextColor3 = Color3.fromRGB(180, 180, 180)
 TargetCardDesc.Font = Enum.Font.GothamMedium
 TargetCardDesc.TextSize = 12
@@ -473,16 +502,15 @@ TargetInputBox.Text = ""
 TargetInputBox.Parent = TargetCard
 Instance.new("UICorner", TargetInputBox).CornerRadius = UDim.new(0, 6)
 
-TargetInputBox.FocusLost:Connect(function()
+TargetInputBox:GetPropertyChangedSignal("Text"):Connect(function()
     States.TargetPlayer = TargetInputBox.Text
 end)
 
--- ปุ่มกดสั่งทำงานพุ่งชนเป้าหมาย
 local LaunchBtnCard = Instance.new("TextButton")
 LaunchBtnCard.Size = UDim2.new(1, 0, 0, 45)
 LaunchBtnCard.BackgroundColor3 = CurrentTheme
 LaunchBtnCard.AutoButtonColor = false
-LaunchBtnCard.Text = "🚀 Teleport & Launch Target to Space"
+LaunchBtnCard.Text = "🚀 Crash & Send Target Flying!"
 LaunchBtnCard.TextColor3 = Color3.fromRGB(255, 255, 255)
 LaunchBtnCard.Font = Enum.Font.GothamBold
 LaunchBtnCard.TextSize = 14
