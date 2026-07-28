@@ -1,5 +1,5 @@
 -- =================================================================
--- 👑 Elite Executor Panel - Auto Die & Advanced Teleporter (Gold Theme)
+-- 👑 Elite Executor Panel - Auto Die & Advanced Teleporter (Ultra Fluid Animations 200%)
 -- =================================================================
 
 local Players = game:GetService("Players")
@@ -71,7 +71,7 @@ if LocalPlayer.Character then
     SetupAutoDie()
 end
 
--- ฟังก์ชันวาร์ปไปหาคนที่เลือก (แค่วาร์ปไปหาเฉยๆ)
+-- ฟังก์ชันวาร์ปไปหาคนที่เลือก
 local function TeleportToTarget()
     if not States.SelectedTarget or not States.SelectedTarget.Character then return end
     
@@ -91,13 +91,13 @@ end
 -- 1. ScreenGui Setup
 -- =================================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EliteExecutorPanel"
+ScreenGui.Name = "EliteExecutorPanel_UltraAnimation"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 -- =================================================================
--- 2. Floating Open/Close Button (พรีเมียมกระจกเงา ขอบทอง)
+-- 2. Floating Open/Close Button (พร้อม Hover & Click Animation สุดสมูท)
 -- =================================================================
 local OpenButton = Instance.new("TextButton")
 OpenButton.Name = "FloatingToggleBtn"
@@ -118,7 +118,6 @@ OpenButtonStroke.Color = CurrentTheme
 OpenButtonStroke.Transparency = 0.2
 OpenButtonStroke.Parent = OpenButton
 
--- เพิ่มลูกเล่นเงาเรืองแสงให้ปุ่มเปิด
 local OpenButtonShadow = Instance.new("ImageLabel")
 OpenButtonShadow.Name = "Shadow"
 OpenButtonShadow.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -131,8 +130,20 @@ OpenButtonShadow.ImageTransparency = 0.4
 OpenButtonShadow.ZIndex = OpenButton.ZIndex - 1
 OpenButtonShadow.Parent = OpenButton
 
+-- อニメーションลูกเล่น Hover ปุ่มเปิด-ปิด
+OpenButton.MouseEnter:Connect(function()
+    TweenService:Create(OpenButton, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 58, 0, 58)
+    }):Play()
+end)
+OpenButton.MouseLeave:Connect(function()
+    TweenService:Create(OpenButton, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 52, 0, 52)
+    }):Play()
+end)
+
 -- =================================================================
--- 3. Main Frame (กระจกสไตล์ Glassmorphism หรูหรา)
+-- 3. Main Frame (ระบบเปิด-ปิด แบบพุ่งขยายด้วย Bounce & Scale 200%)
 -- =================================================================
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
@@ -142,6 +153,7 @@ MainFrame.BackgroundColor3 = Color3.fromHex("#0A0A0E")
 MainFrame.BackgroundTransparency = 0.12
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
+MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
@@ -154,7 +166,6 @@ MainStroke.Color = CurrentTheme
 MainStroke.Transparency = 0.4
 MainStroke.Parent = MainFrame
 
--- เงา Main Frame
 local MainShadow = Instance.new("ImageLabel")
 MainShadow.Name = "MainShadow"
 MainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -167,16 +178,8 @@ MainShadow.ImageTransparency = 0.3
 MainShadow.ZIndex = MainFrame.ZIndex - 1
 MainShadow.Parent = MainFrame
 
-MainFrame.Size = UDim2.new(0, 780 * 0.9, 0, 440 * 0.9)
-MainFrame.BackgroundTransparency = 1
-
-TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, 780, 0, 440),
-    BackgroundTransparency = 0.12
-}):Play()
-
 -- =================================================================
--- 4. Header (หัวข้อดีไซน์ระดับ Elite)
+-- 4. Header (หัวข้อดีไซน์ระดับ Elite พร้อมปุ่มกดมีอนิเมชั่นเด้ง)
 -- =================================================================
 local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 50)
@@ -245,38 +248,43 @@ MinimizeButton.TextSize = 13
 MinimizeButton.Parent = Header
 Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 8)
 
-CloseButton.MouseButton1Click:Connect(function()
-    local tw = TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 780 * 0.9, 0, 440 * 0.9),
-        BackgroundTransparency = 1
-    })
-    tw:Play()
-    tw.Completed:Connect(function() MainFrame.Visible = false end)
-end)
+-- ฟังก์ชันอนิเมชั่นเปิด-ปิดแผงหลักแบบนุ่มนวลสุดๆ
+local isOpen = false
+local function ToggleMainFrame()
+    isOpen = not isOpen
+    if isOpen then
+        MainFrame.Visible = true
+        MainFrame.Size = UDim2.new(0, 600, 0, 320)
+        MainFrame.BackgroundTransparency = 1
+        
+        TweenService:Create(MainFrame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 780, 0, 440),
+            BackgroundTransparency = 0.12
+        }):Play()
+    else
+        local tw = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 600, 0, 320),
+            BackgroundTransparency = 1
+        })
+        tw:Play()
+        tw.Completed:Connect(function()
+            if not isOpen then MainFrame.Visible = false end
+        end)
+    end
+end
+
+OpenButton.MouseButton1Click:Connect(ToggleMainFrame)
+CloseButton.MouseButton1Click:Connect(ToggleMainFrame)
 
 local isMinimized = false
 MinimizeButton.MouseButton1Click:Connect(function()
     isMinimized = not isMinimized
     local targetSize = isMinimized and UDim2.new(0, 780, 0, 50) or UDim2.new(0, 780, 0, 440)
-    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-end)
-
-OpenButton.MouseButton1Click:Connect(function()
-    if not MainFrame.Visible then
-        MainFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 780 * 0.9, 0, 440 * 0.9)
-        MainFrame.BackgroundTransparency = 1
-        TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 780, 0, 440),
-            BackgroundTransparency = 0.12
-        }):Play()
-    else
-        MainFrame.Visible = false
-    end
+    TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
 end)
 
 -- =================================================================
--- 5. Sidebar & Navigation (แถบเมนูด้านข้างสุดหรู)
+-- 5. Sidebar & Navigation (เลื่อนเปลี่ยนหน้าพร้อมเอฟเฟกต์เฟดและสไลด์ 200%)
 -- =================================================================
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 200, 1, -50)
@@ -286,7 +294,6 @@ Sidebar.BackgroundTransparency = 0.4
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
 
--- เส้นแบ่ง Sidebar กับ Content
 local SidebarDivider = Instance.new("Frame")
 SidebarDivider.Size = UDim2.new(0, 1, 1, 0)
 SidebarDivider.Position = UDim2.new(1, 0, 0, 0)
@@ -313,11 +320,13 @@ local function SwitchPage(pageName)
     for name, page in pairs(Pages) do
         if name == pageName then
             page.Visible = true
-            page.Position = UDim2.new(0.05, 0, 0, 0)
-            page.BackgroundTransparency = 1
-            TweenService:Create(page, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            -- เอฟเฟกต์ Slide เข้ามาจากด้านขวา พร้อม Fade-in สมูทขั้นสุด
+            page.Position = UDim2.new(0.08, 0, 0, 0)
+            page.GroupTransparency = 1
+            
+            TweenService:Create(page, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
                 Position = UDim2.new(0, 0, 0, 0),
-                BackgroundTransparency = 1
+                GroupTransparency = 0
             }):Play()
         else
             page.Visible = false
@@ -356,54 +365,71 @@ local function CreateNavButton(name, displayName, yPos)
     RegisterThemeColor(Indicator, "BackgroundColor3")
     ActiveIndicators[name] = Indicator
     
+    -- Hover Animation สำหรับปุ่มเมนู
+    Btn.MouseEnter:Connect(function()
+        if ActiveIndicators[name].Visible == false then
+            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.96}):Play()
+        end
+    end)
+    Btn.MouseLeave:Connect(function()
+        if ActiveIndicators[name].Visible == false then
+            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+        end
+    end)
+
     Btn.MouseButton1Click:Connect(function()
         for _, otherBtn in ipairs(Sidebar:GetChildren()) do
             if otherBtn:IsA("TextButton") then
-                otherBtn.BackgroundTransparency = 1
+                TweenService:Create(otherBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
                 otherBtn.TextColor3 = Color3.fromRGB(170, 170, 180)
             end
         end
-        Btn.BackgroundTransparency = 0.92
+        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.92}):Play()
         Btn.TextColor3 = CurrentTheme
         SwitchPage(name)
     end)
 end
 
 local function CreatePage(name)
-    local Page = Instance.new("ScrollingFrame")
+    -- ใช้ CanvasGroup เพื่อรองรับ GroupTransparency ทำอนิเมชั่นเฟด (Fade) ได้อย่างไร้รอยต่อ
+    local Page = Instance.new("CanvasGroup")
     Page.Size = UDim2.new(1, 0, 1, 0)
     Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.ScrollBarThickness = 3
-    Page.ScrollBarImageColor3 = CurrentTheme
     Page.Visible = false
     Page.Parent = ContentContainer
+    
+    -- ทำ ScrollFrame ด้านใน CanvasGroup อีกที
+    local Scroll = Instance.new("ScrollingFrame")
+    Scroll.Size = UDim2.new(1, 0, 1, 0)
+    Scroll.BackgroundTransparency = 1
+    Scroll.BorderSizePixel = 0
+    Scroll.ScrollBarThickness = 3
+    Scroll.ScrollBarImageColor3 = CurrentTheme
+    Scroll.Parent = Page
     
     local Layout = Instance.new("UIListLayout")
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Layout.Padding = UDim.new(0, 16)
-    Layout.Parent = Page
+    Layout.Parent = Scroll
     
     local Padding = Instance.new("UIPadding")
     Padding.PaddingTop = UDim.new(0, 24)
     Padding.PaddingLeft = UDim.new(0, 24)
     Padding.PaddingRight = UDim.new(0, 24)
     Padding.PaddingBottom = UDim.new(0, 24)
-    Padding.Parent = Page
+    Padding.Parent = Scroll
     
     Pages[name] = Page
-    return Page
+    return Scroll
 end
 
-CreateNavButton("Home", "🏠  Combat Core", 20)
-CreateNavButton("Teleport", "⚡  Player Radar", 76)
-CreateNavButton("Settings", "🎨  Elite Themes", 132)
-
--- =================================================================
--- 6. Page: Home (ระบบ Auto Die สไตล์การ์ดกระจกพรีเมียม)
--- =================================================================
 local HomePage = CreatePage("Home")
+local TeleportPage = CreatePage("Teleport")
+local SettingsPage = CreatePage("Settings")
 
+-- =================================================================
+-- 6. Page: Home (Auto Die พร้อมอนิเมชั่น Toggle วับวับและขยายการ์ด)
+-- =================================================================
 local HomeTitle = Instance.new("TextLabel")
 HomeTitle.Size = UDim2.new(1, 0, 0, 28)
 HomeTitle.BackgroundTransparency = 1
@@ -427,6 +453,20 @@ local function CreateToggleCard(titleText, descText, callback)
     CardStroke.Color = Color3.fromRGB(255, 255, 255)
     CardStroke.Transparency = 0.88
     CardStroke.Parent = Card
+
+    -- Hover เอฟเฟกต์ยกระดับการ์ดขึ้นเล็กน้อย
+    Card.MouseEnter:Connect(function()
+        TweenService:Create(Card, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            BackgroundColor3 = Color3.fromRGB(26, 26, 35)
+        }):Play()
+        TweenService:Create(CardStroke, TweenInfo.new(0.25), {Transparency = 0.5}):Play()
+    end)
+    Card.MouseLeave:Connect(function()
+        TweenService:Create(Card, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+        }):Play()
+        TweenService:Create(CardStroke, TweenInfo.new(0.25), {Transparency = 0.88}):Play()
+    end)
 
     local LabelFrame = Instance.new("Frame")
     LabelFrame.Size = UDim2.new(1, -80, 1, 0)
@@ -477,8 +517,9 @@ local function CreateToggleCard(titleText, descText, callback)
         local goalPos = toggled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
         local goalColor = toggled and CurrentTheme or Color3.fromRGB(35, 35, 45)
         
-        TweenService:Create(ToggleCircle, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = goalPos}):Play()
-        TweenService:Create(ToggleBg, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = goalColor}):Play()
+        -- เอฟเฟกต์กระเด้งสปริง (Back Out) ตอนสลับ Toggle
+        TweenService:Create(ToggleCircle, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = goalPos}):Play()
+        TweenService:Create(ToggleBg, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = goalColor}):Play()
         
         callback(toggled)
     end)
@@ -492,10 +533,8 @@ CreateToggleCard("Auto Die on Damage", "Triggers immediate character reset 0.5s 
 end)
 
 -- =================================================================
--- 6.1 Page: Teleport (ระบบเลือกคนในห้องแบบไฮโซโมเดิร์น)
+-- 6.1 Page: Teleport (ระบบวาร์ป พร้อมอนิเมชั่นคลิกปุ่มยืดหยุ่น)
 -- =================================================================
-local TeleportPage = CreatePage("Teleport")
-
 local TeleportTitle = Instance.new("TextLabel")
 TeleportTitle.Size = UDim2.new(1, 0, 0, 28)
 TeleportTitle.BackgroundTransparency = 1
@@ -517,6 +556,20 @@ TpBtn.TextSize = 14
 TpBtn.Parent = TeleportPage
 Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 10)
 RegisterThemeColor(TpBtn, "BackgroundColor3")
+
+-- อニメーションกดปุ่ม Teleport เด้งยุบตัวลงไป
+TpBtn.MouseButton1Down:Connect(function()
+    TweenService:Create(TpBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(1, -6, 0, 42),
+        Position = UDim2.new(0, 3, 0, 2)
+    }):Play()
+end)
+TpBtn.MouseButton1Up:Connect(function()
+    TweenService:Create(TpBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = UDim2.new(1, 0, 0, 46),
+        Position = UDim2.new(0, 0, 0, 0)
+    }):Play()
+end)
 
 TpBtn.MouseButton1Click:Connect(function()
     TeleportToTarget()
@@ -565,16 +618,31 @@ local function RefreshPlayerList()
             pBtn.Parent = PlayerListContainer
             Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 8)
             
+            pBtn.MouseEnter:Connect(function()
+                if States.SelectedTarget ~= plr then
+                    TweenService:Create(pBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(34, 34, 46)}):Play()
+                end
+            end)
+            pBtn.MouseLeave:Connect(function()
+                if States.SelectedTarget ~= plr then
+                    TweenService:Create(pBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(24, 24, 32)}):Play()
+                end
+            end)
+            
             pBtn.MouseButton1Click:Connect(function()
                 States.SelectedTarget = plr
                 for _, btn in ipairs(PlayerListContainer:GetChildren()) do
                     if btn:IsA("TextButton") then
-                        btn.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
-                        btn.TextColor3 = Color3.fromRGB(210, 210, 220)
+                        TweenService:Create(btn, TweenInfo.new(0.2), {
+                            BackgroundColor3 = Color3.fromRGB(24, 24, 32),
+                            TextColor3 = Color3.fromRGB(210, 210, 220)
+                        }):Play()
                     end
                 end
-                pBtn.BackgroundColor3 = CurrentTheme
-                pBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+                TweenService:Create(pBtn, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    BackgroundColor3 = CurrentTheme,
+                    TextColor3 = Color3.fromRGB(20, 20, 25)
+                }):Play()
             end)
         end
     end
@@ -585,10 +653,8 @@ Players.PlayerAdded:Connect(RefreshPlayerList)
 Players.PlayerRemoving:Connect(RefreshPlayerList)
 
 -- =================================================================
--- 7. Page: Settings (ระบบเลือกสี 8 เฉด รวมถึงสีทองไฮโซ)
+-- 7. Page: Settings (เปลี่ยนสีธีม พร้อมอนิเมชั่นเรืองแสงปุ่มเลือกสี)
 -- =================================================================
-local SettingsPage = CreatePage("Settings")
-
 local SettingsTitle = Instance.new("TextLabel")
 SettingsTitle.Size = UDim2.new(1, 0, 0, 28)
 SettingsTitle.BackgroundTransparency = 1
@@ -642,15 +708,29 @@ local function CreateColorButton(colorName, colorValue)
     Stroke.Transparency = (colorName == CurrentThemeName) and 0 or 1
     Stroke.Parent = Btn
     
+    -- Hover อนิเมชั่นขยายวงสี
+    Btn.MouseEnter:Connect(function()
+        TweenService:Create(Btn, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 46, 0, 46)
+        }):Play()
+    end)
+    Btn.MouseLeave:Connect(function()
+        TweenService:Create(Btn, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 40, 0, 40)
+        }):Play()
+    end)
+
     Btn.MouseButton1Click:Connect(function()
         CurrentThemeName = colorName
         for _, child in ipairs(ColorContainer:GetChildren()) do
             if child:IsA("TextButton") and child:FindFirstChild("UIStroke") then
-                child.UIStroke.Transparency = (child == Btn) and 0 or 1
+                TweenService:Create(child.UIStroke, TweenInfo.new(0.2), {
+                    Transparency = (child == Btn) and 0 or 1
+                }):Play()
             end
         end
         
-        local twInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        local twInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         for _, item in ipairs(ThemeElements) do
             pcall(function()
                 TweenService:Create(item.Object, twInfo, {[item.Prop] = colorValue}):Play()
