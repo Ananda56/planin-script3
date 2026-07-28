@@ -1,296 +1,299 @@
 -- =================================================================
--- 👑 Elite Executor Panel - Auto Die & Advanced Teleporter (Ultra Fluid Animations 200%)
+-- 👑 Elite Executor Panel - Auto Die & Advanced Teleporter
+-- Premium Edition • World-Class Glassmorphism UI
 -- =================================================================
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
--- Theme Color Definitions (8 Elite Colors including Luxury Gold)
+-- ───────────────────── Theme System ─────────────────────
 local THEMES = {
-    Gold = Color3.fromHex("#EAB308"),     -- สีทองหรูหราพรีเมียม
-    Purple = Color3.fromHex("#8B5CF6"),
-    Blue = Color3.fromHex("#3B82F6"),
-    Green = Color3.fromHex("#22C55E"),
-    Crimson = Color3.fromHex("#EF4444"),
-    Pink = Color3.fromHex("#EC4899"),
-    Cyan = Color3.fromHex("#06B6D4"),
-    Dark = Color3.fromHex("#1E1E24")
+	Gold     = Color3.fromHex("#EAB308"),
+	Purple   = Color3.fromHex("#8B5CF6"),
+	Blue     = Color3.fromHex("#3B82F6"),
+	Green    = Color3.fromHex("#22C55E"),
+	Crimson  = Color3.fromHex("#EF4444"),
+	Pink     = Color3.fromHex("#EC4899"),
+	Cyan     = Color3.fromHex("#06B6D4"),
+	Dark     = Color3.fromHex("#1E1E24")
 }
 
-local CurrentTheme = THEMES.Gold -- ตั้งค่าเริ่มต้นเป็นสีทองพรีเมียม
+local CurrentTheme = THEMES.Gold
 local CurrentThemeName = "Gold"
+local ThemeElements = {}
 
--- States & Logic Variables
+local function RegisterTheme(obj, prop)
+	table.insert(ThemeElements, {Object = obj, Prop = prop})
+end
+
+local function ApplyTheme(color, duration)
+	duration = duration or 0.35
+	local info = TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	for _, item in ipairs(ThemeElements) do
+		pcall(function()
+			TweenService:Create(item.Object, info, {[item.Prop] = color}):Play()
+		end)
+	end
+end
+
+-- ───────────────────── States ─────────────────────
 local States = {
-    AutoDie = false,
-    SelectedTarget = nil
+	AutoDie = false,
+	SelectedTarget = nil
 }
 
 local healthConnection = nil
 local isProcessingDeath = false
 
 local function SetupAutoDie()
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-    
-    if healthConnection then
-        healthConnection:Disconnect()
-        healthConnection = nil
-    end
-    
-    local lastHealth = humanoid.Health
-    
-    healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
-        if States.AutoDie and not isProcessingDeath then
-            if currentHealth < lastHealth and currentHealth > 0 then
-                isProcessingDeath = true
-                
-                task.wait(0.5)
-                
-                pcall(function()
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                        LocalPlayer.Character.Humanoid.Health = 0
-                    end
-                end)
-                
-                task.wait(1)
-                isProcessingDeath = false
-            end
-        end
-        lastHealth = humanoid.Health
-    end)
+	local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local humanoid = character:WaitForChild("Humanoid")
+
+	if healthConnection then
+		healthConnection:Disconnect()
+		healthConnection = nil
+	end
+
+	local lastHealth = humanoid.Health
+
+	healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
+		if States.AutoDie and not isProcessingDeath then
+			if currentHealth < lastHealth and currentHealth > 0 then
+				isProcessingDeath = true
+				task.wait(0.5)
+				pcall(function()
+					if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+						LocalPlayer.Character.Humanoid.Health = 0
+					end
+				end)
+				task.wait(1)
+				isProcessingDeath = false
+			end
+		end
+		lastHealth = humanoid.Health
+	end)
 end
 
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(1)
-    SetupAutoDie()
+LocalPlayer.CharacterAdded:Connect(function()
+	task.wait(0.8)
+	SetupAutoDie()
 end)
+
 if LocalPlayer.Character then
-    SetupAutoDie()
+	SetupAutoDie()
 end
 
--- ฟังก์ชันวาร์ปไปหาคนที่เลือก
 local function TeleportToTarget()
-    if not States.SelectedTarget or not States.SelectedTarget.Character then return end
-    
-    local myChar = LocalPlayer.Character
-    local targetChar = States.SelectedTarget.Character
-    
-    if not myChar or not targetChar then return end
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    
-    if myRoot and targetRoot then
-        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
-    end
+	if not States.SelectedTarget or not States.SelectedTarget.Character then return end
+	local myChar = LocalPlayer.Character
+	local targetChar = States.SelectedTarget.Character
+	if not myChar or not targetChar then return end
+
+	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+	local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+	if myRoot and targetRoot then
+		myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
+	end
 end
 
--- =================================================================
--- 1. ScreenGui Setup
--- =================================================================
+-- ───────────────────── ScreenGui ─────────────────────
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EliteExecutorPanel_UltraAnimation"
+ScreenGui.Name = "EliteExecutorPanel"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
-if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+if not ScreenGui.Parent then
+	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
 
--- =================================================================
--- 2. Floating Open/Close Button (พร้อม Hover & Click Animation สุดสมูท)
--- =================================================================
+-- ───────────────────── Floating Toggle Button ─────────────────────
 local OpenButton = Instance.new("TextButton")
-OpenButton.Name = "FloatingToggleBtn"
-OpenButton.Size = UDim2.new(0, 52, 0, 52)
-OpenButton.Position = UDim2.new(0, 24, 0.5, -26)
-OpenButton.BackgroundColor3 = Color3.fromHex("#121216")
-OpenButton.BackgroundTransparency = 0.15
+OpenButton.Name = "FloatingToggle"
+OpenButton.Size = UDim2.fromOffset(56, 56)
+OpenButton.Position = UDim2.new(0, 22, 0.5, -28)
+OpenButton.BackgroundColor3 = Color3.fromHex("#0F0F14")
+OpenButton.BackgroundTransparency = 0.12
 OpenButton.Text = "👑"
 OpenButton.TextColor3 = CurrentTheme
 OpenButton.Font = Enum.Font.GothamBold
-OpenButton.TextSize = 22
+OpenButton.TextSize = 24
+OpenButton.AutoButtonColor = false
 OpenButton.Parent = ScreenGui
 
 Instance.new("UICorner", OpenButton).CornerRadius = UDim.new(1, 0)
-local OpenButtonStroke = Instance.new("UIStroke")
-OpenButtonStroke.Thickness = 2
-OpenButtonStroke.Color = CurrentTheme
-OpenButtonStroke.Transparency = 0.2
-OpenButtonStroke.Parent = OpenButton
 
-local OpenButtonShadow = Instance.new("ImageLabel")
-OpenButtonShadow.Name = "Shadow"
-OpenButtonShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-OpenButtonShadow.Position = UDim2.new(0.5, 0, 0.5, 2)
-OpenButtonShadow.Size = UDim2.new(1, 14, 1, 14)
-OpenButtonShadow.BackgroundTransparency = 1
-OpenButtonShadow.Image = "rbxassetid://6015897843"
-OpenButtonShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-OpenButtonShadow.ImageTransparency = 0.4
-OpenButtonShadow.ZIndex = OpenButton.ZIndex - 1
-OpenButtonShadow.Parent = OpenButton
+local OpenStroke = Instance.new("UIStroke")
+OpenStroke.Thickness = 2
+OpenStroke.Color = CurrentTheme
+OpenStroke.Transparency = 0.25
+OpenStroke.Parent = OpenButton
+RegisterTheme(OpenStroke, "Color")
+RegisterTheme(OpenButton, "TextColor3")
 
--- อニメーションลูกเล่น Hover ปุ่มเปิด-ปิด
+-- Soft glow behind button
+local OpenGlow = Instance.new("ImageLabel")
+OpenGlow.Name = "Glow"
+OpenGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+OpenGlow.Position = UDim2.fromScale(0.5, 0.5)
+OpenGlow.Size = UDim2.new(1, 28, 1, 28)
+OpenGlow.BackgroundTransparency = 1
+OpenGlow.Image = "rbxassetid://5028857084"
+OpenGlow.ImageColor3 = CurrentTheme
+OpenGlow.ImageTransparency = 0.75
+OpenGlow.ZIndex = OpenButton.ZIndex - 1
+OpenGlow.Parent = OpenButton
+RegisterTheme(OpenGlow, "ImageColor3")
+
+-- Hover scale + glow
 OpenButton.MouseEnter:Connect(function()
-    TweenService:Create(OpenButton, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 58, 0, 58)
-    }):Play()
+	TweenService:Create(OpenButton, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Size = UDim2.fromOffset(62, 62)
+	}):Play()
+	TweenService:Create(OpenGlow, TweenInfo.new(0.3), {ImageTransparency = 0.55}):Play()
 end)
 OpenButton.MouseLeave:Connect(function()
-    TweenService:Create(OpenButton, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 52, 0, 52)
-    }):Play()
+	TweenService:Create(OpenButton, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Size = UDim2.fromOffset(56, 56)
+	}):Play()
+	TweenService:Create(OpenGlow, TweenInfo.new(0.3), {ImageTransparency = 0.75}):Play()
 end)
 
--- =================================================================
--- 3. Main Frame (ระบบเปิด-ปิด แบบพุ่งขยายด้วย Bounce & Scale 200%)
--- =================================================================
+-- ───────────────────── Main Frame ─────────────────────
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 780, 0, 440)
-MainFrame.Position = UDim2.new(0.5, -390, 0.5, -220)
-MainFrame.BackgroundColor3 = Color3.fromHex("#0A0A0E")
-MainFrame.BackgroundTransparency = 0.12
+MainFrame.Size = UDim2.fromOffset(0, 0)
+MainFrame.Position = UDim2.fromScale(0.5, 0.5)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromHex("#08080C")
+MainFrame.BackgroundTransparency = 1
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Visible = false
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 16)
+MainCorner.CornerRadius = UDim.new(0, 18)
 MainCorner.Parent = MainFrame
 
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Thickness = 1.5
 MainStroke.Color = CurrentTheme
-MainStroke.Transparency = 0.4
+MainStroke.Transparency = 0.45
 MainStroke.Parent = MainFrame
+RegisterTheme(MainStroke, "Color")
 
+-- Soft outer shadow
 local MainShadow = Instance.new("ImageLabel")
-MainShadow.Name = "MainShadow"
+MainShadow.Name = "Shadow"
 MainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
-MainShadow.Position = UDim2.new(0.5, 0, 0.5, 4)
-MainShadow.Size = UDim2.new(1, 24, 1, 24)
+MainShadow.Position = UDim2.fromScale(0.5, 0.5)
+MainShadow.Size = UDim2.new(1, 40, 1, 40)
 MainShadow.BackgroundTransparency = 1
 MainShadow.Image = "rbxassetid://6015897843"
-MainShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-MainShadow.ImageTransparency = 0.3
+MainShadow.ImageColor3 = Color3.new(0, 0, 0)
+MainShadow.ImageTransparency = 0.35
 MainShadow.ZIndex = MainFrame.ZIndex - 1
 MainShadow.Parent = MainFrame
 
--- =================================================================
--- 4. Header (หัวข้อดีไซน์ระดับ Elite พร้อมปุ่มกดมีอนิเมชั่นเด้ง)
--- =================================================================
+-- ───────────────────── Header ─────────────────────
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 50)
+Header.Size = UDim2.new(1, 0, 0, 54)
 Header.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-Header.BackgroundTransparency = 0.3
+Header.BackgroundTransparency = 0.35
 Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
 local HeaderGradient = Instance.new("UIGradient")
 HeaderGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 180))
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 160, 170))
+})
+HeaderGradient.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0.85),
+	NumberSequenceKeypoint.new(1, 0.95)
 })
 HeaderGradient.Parent = Header
 
 local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(0, 400, 1, 0)
-HeaderTitle.Position = UDim2.new(0, 20, 0, 0)
+HeaderTitle.Size = UDim2.new(0, 420, 1, 0)
+HeaderTitle.Position = UDim2.fromOffset(22, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "👑  ELITE CONTROL PANEL  •  PREMIUM EDITION"
-HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+HeaderTitle.Text = "👑  ELITE CONTROL PANEL  •  PREMIUM"
+HeaderTitle.TextColor3 = Color3.fromRGB(245, 245, 250)
 HeaderTitle.Font = Enum.Font.GothamBold
-HeaderTitle.TextSize = 13
+HeaderTitle.TextSize = 14
 HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
 HeaderTitle.Parent = Header
 
-local StatusIndicator = Instance.new("Frame")
-StatusIndicator.Size = UDim2.new(0, 8, 0, 8)
-StatusIndicator.Position = UDim2.new(1, -210, 0.5, -4)
-StatusIndicator.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
-StatusIndicator.Parent = Header
-Instance.new("UICorner", StatusIndicator).CornerRadius = UDim.new(1, 0)
+-- Status pill
+local StatusPill = Instance.new("Frame")
+StatusPill.Size = UDim2.fromOffset(118, 22)
+StatusPill.Position = UDim2.new(1, -200, 0.5, -11)
+StatusPill.BackgroundColor3 = Color3.fromRGB(20, 40, 30)
+StatusPill.BackgroundTransparency = 0.3
+StatusPill.Parent = Header
+Instance.new("UICorner", StatusPill).CornerRadius = UDim.new(1, 0)
+
+local StatusDot = Instance.new("Frame")
+StatusDot.Size = UDim2.fromOffset(7, 7)
+StatusDot.Position = UDim2.fromOffset(9, 7.5)
+StatusDot.BackgroundColor3 = Color3.fromRGB(34, 197, 94)
+StatusDot.Parent = StatusPill
+Instance.new("UICorner", StatusDot).CornerRadius = UDim.new(1, 0)
 
 local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Size = UDim2.new(0, 120, 1, 0)
-StatusLabel.Position = UDim2.new(1, -195, 0, 0)
+StatusLabel.Size = UDim2.new(1, -24, 1, 0)
+StatusLabel.Position = UDim2.fromOffset(20, 0)
 StatusLabel.BackgroundTransparency = 1
 StatusLabel.Text = "SYSTEM SECURE"
-StatusLabel.TextColor3 = Color3.fromRGB(160, 180, 170)
+StatusLabel.TextColor3 = Color3.fromRGB(160, 200, 175)
 StatusLabel.Font = Enum.Font.GothamBold
 StatusLabel.TextSize = 10
 StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
-StatusLabel.Parent = Header
+StatusLabel.Parent = StatusPill
 
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 32, 0, 32)
-CloseButton.Position = UDim2.new(1, -42, 0.5, -16)
-CloseButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-CloseButton.BackgroundTransparency = 0.5
-CloseButton.Text = "✕"
-CloseButton.TextColor3 = Color3.fromRGB(220, 220, 220)
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 13
-CloseButton.Parent = Header
-Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0, 8)
+-- Window controls
+local function CreateWindowBtn(text, xOffset)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromOffset(34, 34)
+	btn.Position = UDim2.new(1, xOffset, 0.5, -17)
+	btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+	btn.BackgroundTransparency = 0.45
+	btn.Text = text
+	btn.TextColor3 = Color3.fromRGB(210, 210, 220)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	btn.AutoButtonColor = false
+	btn.Parent = Header
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 9)
 
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Size = UDim2.new(0, 32, 0, 32)
-MinimizeButton.Position = UDim2.new(1, -80, 0.5, -16)
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-MinimizeButton.BackgroundTransparency = 0.5
-MinimizeButton.Text = "─"
-MinimizeButton.TextColor3 = Color3.fromRGB(220, 220, 220)
-MinimizeButton.Font = Enum.Font.GothamBold
-MinimizeButton.TextSize = 13
-MinimizeButton.Parent = Header
-Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0, 8)
-
--- ฟังก์ชันอนิเมชั่นเปิด-ปิดแผงหลักแบบนุ่มนวลสุดๆ
-local isOpen = false
-local function ToggleMainFrame()
-    isOpen = not isOpen
-    if isOpen then
-        MainFrame.Visible = true
-        MainFrame.Size = UDim2.new(0, 600, 0, 320)
-        MainFrame.BackgroundTransparency = 1
-        
-        TweenService:Create(MainFrame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 780, 0, 440),
-            BackgroundTransparency = 0.12
-        }):Play()
-    else
-        local tw = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 600, 0, 320),
-            BackgroundTransparency = 1
-        })
-        tw:Play()
-        tw.Completed:Connect(function()
-            if not isOpen then MainFrame.Visible = false end
-        end)
-    end
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.2), {
+			BackgroundTransparency = 0.2,
+			TextColor3 = Color3.fromRGB(255, 255, 255)
+		}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.2), {
+			BackgroundTransparency = 0.45,
+			TextColor3 = Color3.fromRGB(210, 210, 220)
+		}):Play()
+	end)
+	return btn
 end
 
-OpenButton.MouseButton1Click:Connect(ToggleMainFrame)
-CloseButton.MouseButton1Click:Connect(ToggleMainFrame)
+local CloseButton = CreateWindowBtn("✕", -48)
+local MinimizeButton = CreateWindowBtn("─", -90)
 
-local isMinimized = false
-MinimizeButton.MouseButton1Click:Connect(function()
-    isMinimized = not isMinimized
-    local targetSize = isMinimized and UDim2.new(0, 780, 0, 50) or UDim2.new(0, 780, 0, 440)
-    TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-end)
-
--- =================================================================
--- 5. Sidebar & Navigation (เลื่อนเปลี่ยนหน้าพร้อมเอฟเฟกต์เฟดและสไลด์ 200%)
--- =================================================================
+-- ───────────────────── Sidebar ─────────────────────
 local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 200, 1, -50)
-Sidebar.Position = UDim2.new(0, 0, 0, 50)
-Sidebar.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
-Sidebar.BackgroundTransparency = 0.4
+Sidebar.Size = UDim2.new(0, 210, 1, -54)
+Sidebar.Position = UDim2.fromOffset(0, 54)
+Sidebar.BackgroundColor3 = Color3.fromRGB(6, 6, 10)
+Sidebar.BackgroundTransparency = 0.35
 Sidebar.BorderSizePixel = 0
 Sidebar.Parent = MainFrame
 
@@ -298,449 +301,449 @@ local SidebarDivider = Instance.new("Frame")
 SidebarDivider.Size = UDim2.new(0, 1, 1, 0)
 SidebarDivider.Position = UDim2.new(1, 0, 0, 0)
 SidebarDivider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-SidebarDivider.BackgroundTransparency = 0.9
+SidebarDivider.BackgroundTransparency = 0.92
 SidebarDivider.Parent = Sidebar
 
 local ContentContainer = Instance.new("Frame")
-ContentContainer.Size = UDim2.new(1, -200, 1, -50)
-ContentContainer.Position = UDim2.new(0, 200, 0, 50)
+ContentContainer.Size = UDim2.new(1, -210, 1, -54)
+ContentContainer.Position = UDim2.fromOffset(210, 54)
 ContentContainer.BackgroundTransparency = 1
 ContentContainer.ClipsDescendants = true
 ContentContainer.Parent = MainFrame
 
+-- ───────────────────── Navigation & Pages ─────────────────────
 local Pages = {}
 local ActiveIndicators = {}
-local ThemeElements = {}
-
-local function RegisterThemeColor(obj, property)
-    table.insert(ThemeElements, {Object = obj, Prop = property})
-end
+local NavButtons = {}
 
 local function SwitchPage(pageName)
-    for name, page in pairs(Pages) do
-        if name == pageName then
-            page.Visible = true
-            -- เอฟเฟกต์ Slide เข้ามาจากด้านขวา พร้อม Fade-in สมูทขั้นสุด
-            page.Position = UDim2.new(0.08, 0, 0, 0)
-            page.GroupTransparency = 1
-            
-            TweenService:Create(page, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                Position = UDim2.new(0, 0, 0, 0),
-                GroupTransparency = 0
-            }):Play()
-        else
-            page.Visible = false
-        end
-    end
-    for name, ind in pairs(ActiveIndicators) do
-        ind.Visible = (name == pageName)
-    end
+	for name, page in pairs(Pages) do
+		if name == pageName then
+			page.Visible = true
+			page.Position = UDim2.new(0.04, 0, 0, 0)
+			page.BackgroundTransparency = 1
+			TweenService:Create(page, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+				Position = UDim2.fromOffset(0, 0)
+			}):Play()
+		else
+			page.Visible = false
+		end
+	end
+
+	for name, ind in pairs(ActiveIndicators) do
+		ind.Visible = (name == pageName)
+		if name == pageName then
+			ind.BackgroundTransparency = 1
+			TweenService:Create(ind, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+				BackgroundTransparency = 0
+			}):Play()
+		end
+	end
+
+	for name, btn in pairs(NavButtons) do
+		if name == pageName then
+			TweenService:Create(btn, TweenInfo.new(0.25), {
+				BackgroundTransparency = 0.88,
+				TextColor3 = CurrentTheme
+			}):Play()
+		else
+			TweenService:Create(btn, TweenInfo.new(0.25), {
+				BackgroundTransparency = 1,
+				TextColor3 = Color3.fromRGB(165, 165, 175)
+			}):Play()
+		end
+	end
 end
 
 local function CreateNavButton(name, displayName, yPos)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, -20, 0, 46)
-    Btn.Position = UDim2.new(0, 10, 0, yPos)
-    Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    Btn.BackgroundTransparency = (name == "Home") and 0.92 or 1
-    Btn.Text = "      " .. displayName
-    Btn.TextColor3 = (name == "Home") and CurrentTheme or Color3.fromRGB(170, 170, 180)
-    Btn.Font = Enum.Font.GothamBold
-    Btn.TextSize = 13
-    Btn.TextXAlignment = Enum.TextXAlignment.Left
-    Btn.Parent = Sidebar
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
-    
-    if name == "Home" then
-        RegisterThemeColor(Btn, "TextColor3")
-    end
+	local Btn = Instance.new("TextButton")
+	Btn.Size = UDim2.new(1, -24, 0, 48)
+	Btn.Position = UDim2.fromOffset(12, yPos)
+	Btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	Btn.BackgroundTransparency = 1
+	Btn.Text = "  " .. displayName
+	Btn.TextColor3 = Color3.fromRGB(165, 165, 175)
+	Btn.Font = Enum.Font.GothamBold
+	Btn.TextSize = 13
+	Btn.TextXAlignment = Enum.TextXAlignment.Left
+	Btn.AutoButtonColor = false
+	Btn.Parent = Sidebar
+	Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 12)
 
-    local Indicator = Instance.new("Frame")
-    Indicator.Size = UDim2.new(0, 4, 0, 24)
-    Indicator.Position = UDim2.new(0, 0, 0.5, -12)
-    Indicator.BackgroundColor3 = CurrentTheme
-    Indicator.Visible = (name == "Home")
-    Indicator.Parent = Btn
-    Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
-    RegisterThemeColor(Indicator, "BackgroundColor3")
-    ActiveIndicators[name] = Indicator
-    
-    -- Hover Animation สำหรับปุ่มเมนู
-    Btn.MouseEnter:Connect(function()
-        if ActiveIndicators[name].Visible == false then
-            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.96}):Play()
-        end
-    end)
-    Btn.MouseLeave:Connect(function()
-        if ActiveIndicators[name].Visible == false then
-            TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-        end
-    end)
+	local Indicator = Instance.new("Frame")
+	Indicator.Size = UDim2.fromOffset(4, 22)
+	Indicator.Position = UDim2.new(0, 0, 0.5, -11)
+	Indicator.BackgroundColor3 = CurrentTheme
+	Indicator.Visible = false
+	Indicator.Parent = Btn
+	Instance.new("UICorner", Indicator).CornerRadius = UDim.new(1, 0)
+	RegisterTheme(Indicator, "BackgroundColor3")
+	ActiveIndicators[name] = Indicator
+	NavButtons[name] = Btn
 
-    Btn.MouseButton1Click:Connect(function()
-        for _, otherBtn in ipairs(Sidebar:GetChildren()) do
-            if otherBtn:IsA("TextButton") then
-                TweenService:Create(otherBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-                otherBtn.TextColor3 = Color3.fromRGB(170, 170, 180)
-            end
-        end
-        TweenService:Create(Btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.92}):Play()
-        Btn.TextColor3 = CurrentTheme
-        SwitchPage(name)
-    end)
+	Btn.MouseEnter:Connect(function()
+		if ActiveIndicators[name].Visible then return end
+		TweenService:Create(Btn, TweenInfo.new(0.2), {
+			BackgroundTransparency = 0.94,
+			TextColor3 = Color3.fromRGB(220, 220, 230)
+		}):Play()
+	end)
+	Btn.MouseLeave:Connect(function()
+		if ActiveIndicators[name].Visible then return end
+		TweenService:Create(Btn, TweenInfo.new(0.2), {
+			BackgroundTransparency = 1,
+			TextColor3 = Color3.fromRGB(165, 165, 175)
+		}):Play()
+	end)
+
+	Btn.MouseButton1Click:Connect(function()
+		SwitchPage(name)
+	end)
+
+	return Btn
 end
 
 local function CreatePage(name)
-    -- ใช้ CanvasGroup เพื่อรองรับ GroupTransparency ทำอนิเมชั่นเฟด (Fade) ได้อย่างไร้รอยต่อ
-    local Page = Instance.new("CanvasGroup")
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.BackgroundTransparency = 1
-    Page.Visible = false
-    Page.Parent = ContentContainer
-    
-    -- ทำ ScrollFrame ด้านใน CanvasGroup อีกที
-    local Scroll = Instance.new("ScrollingFrame")
-    Scroll.Size = UDim2.new(1, 0, 1, 0)
-    Scroll.BackgroundTransparency = 1
-    Scroll.BorderSizePixel = 0
-    Scroll.ScrollBarThickness = 3
-    Scroll.ScrollBarImageColor3 = CurrentTheme
-    Scroll.Parent = Page
-    
-    local Layout = Instance.new("UIListLayout")
-    Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Layout.Padding = UDim.new(0, 16)
-    Layout.Parent = Scroll
-    
-    local Padding = Instance.new("UIPadding")
-    Padding.PaddingTop = UDim.new(0, 24)
-    Padding.PaddingLeft = UDim.new(0, 24)
-    Padding.PaddingRight = UDim.new(0, 24)
-    Padding.PaddingBottom = UDim.new(0, 24)
-    Padding.Parent = Scroll
-    
-    Pages[name] = Page
-    return Scroll
+	local Page = Instance.new("ScrollingFrame")
+	Page.Size = UDim2.fromScale(1, 1)
+	Page.BackgroundTransparency = 1
+	Page.BorderSizePixel = 0
+	Page.ScrollBarThickness = 4
+	Page.ScrollBarImageColor3 = CurrentTheme
+	Page.ScrollBarImageTransparency = 0.4
+	Page.CanvasSize = UDim2.new(0, 0, 0, 0)
+	Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	Page.Visible = false
+	Page.Parent = ContentContainer
+	RegisterTheme(Page, "ScrollBarImageColor3")
+
+	local Layout = Instance.new("UIListLayout")
+	Layout.SortOrder = Enum.SortOrder.LayoutOrder
+	Layout.Padding = UDim.new(0, 18)
+	Layout.Parent = Page
+
+	local Padding = Instance.new("UIPadding")
+	Padding.PaddingTop = UDim.new(0, 26)
+	Padding.PaddingLeft = UDim.new(0, 28)
+	Padding.PaddingRight = UDim.new(0, 28)
+	Padding.PaddingBottom = UDim.new(0, 28)
+	Padding.Parent = Page
+
+	Pages[name] = Page
+	return Page
 end
 
-local HomePage = CreatePage("Home")
-local TeleportPage = CreatePage("Teleport")
-local SettingsPage = CreatePage("Settings")
+CreateNavButton("Home", "🏠  Combat Core", 22)
+CreateNavButton("Teleport", "⚡  Player Radar", 80)
+CreateNavButton("Settings", "🎨  Elite Themes", 138)
 
--- =================================================================
--- 6. Page: Home (Auto Die พร้อมอนิเมชั่น Toggle วับวับและขยายการ์ด)
--- =================================================================
+-- ───────────────────── HOME PAGE ─────────────────────
+local HomePage = CreatePage("Home")
+
 local HomeTitle = Instance.new("TextLabel")
-HomeTitle.Size = UDim2.new(1, 0, 0, 28)
+HomeTitle.Size = UDim2.new(1, 0, 0, 30)
 HomeTitle.BackgroundTransparency = 1
 HomeTitle.Text = "Combat Protection Suite"
 HomeTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HomeTitle.Font = Enum.Font.GothamBold
-HomeTitle.TextSize = 18
+HomeTitle.TextSize = 20
 HomeTitle.TextXAlignment = Enum.TextXAlignment.Left
 HomeTitle.Parent = HomePage
 
 local function CreateToggleCard(titleText, descText, callback)
-    local Card = Instance.new("Frame")
-    Card.Size = UDim2.new(1, 0, 0, 68)
-    Card.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-    Card.BackgroundTransparency = 0.5
-    Card.Parent = HomePage
-    Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 12)
+	local Card = Instance.new("Frame")
+	Card.Size = UDim2.new(1, 0, 0, 74)
+	Card.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+	Card.BackgroundTransparency = 0.45
+	Card.Parent = HomePage
+	Instance.new("UICorner", Card).CornerRadius = UDim.new(0, 14)
 
-    local CardStroke = Instance.new("UIStroke")
-    CardStroke.Thickness = 1
-    CardStroke.Color = Color3.fromRGB(255, 255, 255)
-    CardStroke.Transparency = 0.88
-    CardStroke.Parent = Card
+	local CardStroke = Instance.new("UIStroke")
+	CardStroke.Thickness = 1
+	CardStroke.Color = Color3.fromRGB(255, 255, 255)
+	CardStroke.Transparency = 0.9
+	CardStroke.Parent = Card
 
-    -- Hover เอฟเฟกต์ยกระดับการ์ดขึ้นเล็กน้อย
-    Card.MouseEnter:Connect(function()
-        TweenService:Create(Card, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            BackgroundColor3 = Color3.fromRGB(26, 26, 35)
-        }):Play()
-        TweenService:Create(CardStroke, TweenInfo.new(0.25), {Transparency = 0.5}):Play()
-    end)
-    Card.MouseLeave:Connect(function()
-        TweenService:Create(Card, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-        }):Play()
-        TweenService:Create(CardStroke, TweenInfo.new(0.25), {Transparency = 0.88}):Play()
-    end)
+	local LabelFrame = Instance.new("Frame")
+	LabelFrame.Size = UDim2.new(1, -90, 1, 0)
+	LabelFrame.Position = UDim2.fromOffset(20, 0)
+	LabelFrame.BackgroundTransparency = 1
+	LabelFrame.Parent = Card
 
-    local LabelFrame = Instance.new("Frame")
-    LabelFrame.Size = UDim2.new(1, -80, 1, 0)
-    LabelFrame.Position = UDim2.new(0, 18, 0, 0)
-    LabelFrame.BackgroundTransparency = 1
-    LabelFrame.Parent = Card
+	local Title = Instance.new("TextLabel")
+	Title.Size = UDim2.new(1, 0, 0, 24)
+	Title.Position = UDim2.fromOffset(0, 14)
+	Title.BackgroundTransparency = 1
+	Title.Text = titleText
+	Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	Title.Font = Enum.Font.GothamBold
+	Title.TextSize = 15
+	Title.TextXAlignment = Enum.TextXAlignment.Left
+	Title.Parent = LabelFrame
 
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 22)
-    Title.Position = UDim2.new(0, 0, 0, 12)
-    Title.BackgroundTransparency = 1
-    Title.Text = titleText
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.Font = Enum.Font.GothamBold
-    Title.TextSize = 14
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Parent = LabelFrame
+	local Desc = Instance.new("TextLabel")
+	Desc.Size = UDim2.new(1, 0, 0, 18)
+	Desc.Position = UDim2.fromOffset(0, 40)
+	Desc.BackgroundTransparency = 1
+	Desc.Text = descText
+	Desc.TextColor3 = Color3.fromRGB(145, 145, 160)
+	Desc.Font = Enum.Font.GothamMedium
+	Desc.TextSize = 12
+	Desc.TextXAlignment = Enum.TextXAlignment.Left
+	Desc.Parent = LabelFrame
 
-    local Desc = Instance.new("TextLabel")
-    Desc.Size = UDim2.new(1, 0, 0, 18)
-    Desc.Position = UDim2.new(0, 0, 0, 36)
-    Desc.BackgroundTransparency = 1
-    Desc.Text = descText
-    Desc.TextColor3 = Color3.fromRGB(150, 150, 165)
-    Desc.Font = Enum.Font.GothamMedium
-    Desc.TextSize = 11
-    Desc.TextXAlignment = Enum.TextXAlignment.Left
-    Desc.Parent = LabelFrame
+	local ToggleBg = Instance.new("TextButton")
+	ToggleBg.Size = UDim2.fromOffset(54, 28)
+	ToggleBg.Position = UDim2.new(1, -70, 0.5, -14)
+	ToggleBg.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
+	ToggleBg.Text = ""
+	ToggleBg.AutoButtonColor = false
+	ToggleBg.Parent = Card
+	Instance.new("UICorner", ToggleBg).CornerRadius = UDim.new(1, 0)
 
-    local ToggleBg = Instance.new("TextButton")
-    ToggleBg.Size = UDim2.new(0, 50, 0, 26)
-    ToggleBg.Position = UDim2.new(1, -62, 0.5, -13)
-    ToggleBg.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-    ToggleBg.Text = ""
-    ToggleBg.Parent = Card
-    Instance.new("UICorner", ToggleBg).CornerRadius = UDim.new(1, 0)
+	local ToggleCircle = Instance.new("Frame")
+	ToggleCircle.Size = UDim2.fromOffset(22, 22)
+	ToggleCircle.Position = UDim2.fromOffset(3, 3)
+	ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	ToggleCircle.Parent = ToggleBg
+	Instance.new("UICorner", ToggleCircle).CornerRadius = UDim.new(1, 0)
 
-    local ToggleCircle = Instance.new("Frame")
-    ToggleCircle.Size = UDim2.new(0, 20, 0, 20)
-    ToggleCircle.Position = UDim2.new(0, 3, 0.5, -10)
-    ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleCircle.Parent = ToggleBg
-    Instance.new("UICorner", ToggleCircle).CornerRadius = UDim.new(1, 0)
+	local toggled = false
+	ToggleBg.MouseButton1Click:Connect(function()
+		toggled = not toggled
+		local goalPos = toggled and UDim2.new(1, -25, 0, 3) or UDim2.fromOffset(3, 3)
+		local goalColor = toggled and CurrentTheme or Color3.fromRGB(38, 38, 48)
 
-    local toggled = false
-    ToggleBg.MouseButton1Click:Connect(function()
-        toggled = not toggled
-        local goalPos = toggled and UDim2.new(1, -23, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
-        local goalColor = toggled and CurrentTheme or Color3.fromRGB(35, 35, 45)
-        
-        -- เอฟเฟกต์กระเด้งสปริง (Back Out) ตอนสลับ Toggle
-        TweenService:Create(ToggleCircle, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = goalPos}):Play()
-        TweenService:Create(ToggleBg, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundColor3 = goalColor}):Play()
-        
-        callback(toggled)
-    end)
+		TweenService:Create(ToggleCircle, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Position = goalPos
+		}):Play()
+		TweenService:Create(ToggleBg, TweenInfo.new(0.28, Enum.EasingStyle.Quart), {
+			BackgroundColor3 = goalColor
+		}):Play()
 
-    RegisterThemeColor(ToggleBg, "BackgroundColor3")
-    return ToggleBg
+		callback(toggled)
+	end)
+
+	RegisterTheme(ToggleBg, "BackgroundColor3")
+	return ToggleBg
 end
 
-CreateToggleCard("Auto Die on Damage", "Triggers immediate character reset 0.5s after taking any damage", function(state)
-    States.AutoDie = state
-end)
+CreateToggleCard(
+	"Auto Die on Damage",
+	"Instant character reset 0.5s after taking any damage",
+	function(state)
+		States.AutoDie = state
+	end
+)
 
--- =================================================================
--- 6.1 Page: Teleport (ระบบวาร์ป พร้อมอนิเมชั่นคลิกปุ่มยืดหยุ่น)
--- =================================================================
+-- ───────────────────── TELEPORT PAGE ─────────────────────
+local TeleportPage = CreatePage("Teleport")
+
 local TeleportTitle = Instance.new("TextLabel")
-TeleportTitle.Size = UDim2.new(1, 0, 0, 28)
+TeleportTitle.Size = UDim2.new(1, 0, 0, 30)
 TeleportTitle.BackgroundTransparency = 1
 TeleportTitle.Text = "Target Teleportation System"
 TeleportTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 TeleportTitle.Font = Enum.Font.GothamBold
-TeleportTitle.TextSize = 18
+TeleportTitle.TextSize = 20
 TeleportTitle.TextXAlignment = Enum.TextXAlignment.Left
 TeleportTitle.Parent = TeleportPage
 
 local TpBtn = Instance.new("TextButton")
-TpBtn.Size = UDim2.new(1, 0, 0, 46)
+TpBtn.Size = UDim2.new(1, 0, 0, 50)
 TpBtn.BackgroundColor3 = CurrentTheme
 TpBtn.AutoButtonColor = false
 TpBtn.Text = "⚡  Instant Teleport to Target"
-TpBtn.TextColor3 = Color3.fromRGB(20, 20, 25)
+TpBtn.TextColor3 = Color3.fromRGB(15, 15, 20)
 TpBtn.Font = Enum.Font.GothamBold
-TpBtn.TextSize = 14
+TpBtn.TextSize = 15
 TpBtn.Parent = TeleportPage
-Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 10)
-RegisterThemeColor(TpBtn, "BackgroundColor3")
+Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 12)
+RegisterTheme(TpBtn, "BackgroundColor3")
 
--- อニメーションกดปุ่ม Teleport เด้งยุบตัวลงไป
-TpBtn.MouseButton1Down:Connect(function()
-    TweenService:Create(TpBtn, TweenInfo.new(0.1, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Size = UDim2.new(1, -6, 0, 42),
-        Position = UDim2.new(0, 3, 0, 2)
-    }):Play()
+TpBtn.MouseEnter:Connect(function()
+	TweenService:Create(TpBtn, TweenInfo.new(0.22, Enum.EasingStyle.Back), {
+		Size = UDim2.new(1, 0, 0, 54)
+	}):Play()
 end)
-TpBtn.MouseButton1Up:Connect(function()
-    TweenService:Create(TpBtn, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Size = UDim2.new(1, 0, 0, 46),
-        Position = UDim2.new(0, 0, 0, 0)
-    }):Play()
+TpBtn.MouseLeave:Connect(function()
+	TweenService:Create(TpBtn, TweenInfo.new(0.22, Enum.EasingStyle.Quart), {
+		Size = UDim2.new(1, 0, 0, 50)
+	}):Play()
 end)
-
-TpBtn.MouseButton1Click:Connect(function()
-    TeleportToTarget()
-end)
+TpBtn.MouseButton1Click:Connect(TeleportToTarget)
 
 local PlayerListContainer = Instance.new("ScrollingFrame")
-PlayerListContainer.Size = UDim2.new(1, 0, 0, 210)
-PlayerListContainer.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-PlayerListContainer.BackgroundTransparency = 0.5
+PlayerListContainer.Size = UDim2.new(1, 0, 0, 230)
+PlayerListContainer.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+PlayerListContainer.BackgroundTransparency = 0.4
 PlayerListContainer.BorderSizePixel = 0
-PlayerListContainer.ScrollBarThickness = 3
+PlayerListContainer.ScrollBarThickness = 4
 PlayerListContainer.ScrollBarImageColor3 = CurrentTheme
+PlayerListContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
 PlayerListContainer.Parent = TeleportPage
-Instance.new("UICorner", PlayerListContainer).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", PlayerListContainer).CornerRadius = UDim.new(0, 14)
+RegisterTheme(PlayerListContainer, "ScrollBarImageColor3")
 
 local ListLayout = Instance.new("UIListLayout")
 ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-ListLayout.Padding = UDim.new(0, 6)
+ListLayout.Padding = UDim.new(0, 7)
 ListLayout.Parent = PlayerListContainer
 
 local ListPadding = Instance.new("UIPadding")
-ListPadding.PaddingTop = UDim.new(0, 10)
-ListPadding.PaddingLeft = UDim.new(0, 10)
-ListPadding.PaddingRight = UDim.new(0, 10)
-ListPadding.PaddingBottom = UDim.new(0, 10)
+ListPadding.PaddingTop = UDim.new(0, 12)
+ListPadding.PaddingLeft = UDim.new(0, 12)
+ListPadding.PaddingRight = UDim.new(0, 12)
+ListPadding.PaddingBottom = UDim.new(0, 12)
 ListPadding.Parent = PlayerListContainer
 
 local function RefreshPlayerList()
-    for _, child in ipairs(PlayerListContainer:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
-    end
-    
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            local pBtn = Instance.new("TextButton")
-            pBtn.Size = UDim2.new(1, 0, 0, 40)
-            pBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
-            pBtn.AutoButtonColor = false
-            pBtn.Text = "     👤  " .. plr.Name .. "  (@ " .. plr.DisplayName .. " )"
-            pBtn.TextColor3 = Color3.fromRGB(210, 210, 220)
-            pBtn.Font = Enum.Font.GothamMedium
-            pBtn.TextSize = 13
-            pBtn.TextXAlignment = Enum.TextXAlignment.Left
-            pBtn.Parent = PlayerListContainer
-            Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 8)
-            
-            pBtn.MouseEnter:Connect(function()
-                if States.SelectedTarget ~= plr then
-                    TweenService:Create(pBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(34, 34, 46)}):Play()
-                end
-            end)
-            pBtn.MouseLeave:Connect(function()
-                if States.SelectedTarget ~= plr then
-                    TweenService:Create(pBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(24, 24, 32)}):Play()
-                end
-            end)
-            
-            pBtn.MouseButton1Click:Connect(function()
-                States.SelectedTarget = plr
-                for _, btn in ipairs(PlayerListContainer:GetChildren()) do
-                    if btn:IsA("TextButton") then
-                        TweenService:Create(btn, TweenInfo.new(0.2), {
-                            BackgroundColor3 = Color3.fromRGB(24, 24, 32),
-                            TextColor3 = Color3.fromRGB(210, 210, 220)
-                        }):Play()
-                    end
-                end
-                TweenService:Create(pBtn, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    BackgroundColor3 = CurrentTheme,
-                    TextColor3 = Color3.fromRGB(20, 20, 25)
-                }):Play()
-            end)
-        end
-    end
+	for _, child in ipairs(PlayerListContainer:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer then
+			local pBtn = Instance.new("TextButton")
+			pBtn.Size = UDim2.new(1, 0, 0, 42)
+			pBtn.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+			pBtn.AutoButtonColor = false
+			pBtn.Text = "  👤  " .. plr.Name .. "  •  " .. plr.DisplayName
+			pBtn.TextColor3 = Color3.fromRGB(205, 205, 215)
+			pBtn.Font = Enum.Font.GothamMedium
+			pBtn.TextSize = 13
+			pBtn.TextXAlignment = Enum.TextXAlignment.Left
+			pBtn.Parent = PlayerListContainer
+			Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 10)
+
+			pBtn.MouseEnter:Connect(function()
+				if States.SelectedTarget ~= plr then
+					TweenService:Create(pBtn, TweenInfo.new(0.2), {
+						BackgroundColor3 = Color3.fromRGB(32, 32, 42)
+					}):Play()
+				end
+			end)
+			pBtn.MouseLeave:Connect(function()
+				if States.SelectedTarget ~= plr then
+					TweenService:Create(pBtn, TweenInfo.new(0.2), {
+						BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+					}):Play()
+				end
+			end)
+
+			pBtn.MouseButton1Click:Connect(function()
+				States.SelectedTarget = plr
+				for _, btn in ipairs(PlayerListContainer:GetChildren()) do
+					if btn:IsA("TextButton") then
+						TweenService:Create(btn, TweenInfo.new(0.25), {
+							BackgroundColor3 = Color3.fromRGB(22, 22, 30),
+							TextColor3 = Color3.fromRGB(205, 205, 215)
+						}):Play()
+					end
+				end
+				TweenService:Create(pBtn, TweenInfo.new(0.25, Enum.EasingStyle.Back), {
+					BackgroundColor3 = CurrentTheme,
+					TextColor3 = Color3.fromRGB(15, 15, 20)
+				}):Play()
+			end)
+		end
+	end
 end
 
 RefreshPlayerList()
 Players.PlayerAdded:Connect(RefreshPlayerList)
 Players.PlayerRemoving:Connect(RefreshPlayerList)
 
--- =================================================================
--- 7. Page: Settings (เปลี่ยนสีธีม พร้อมอนิเมชั่นเรืองแสงปุ่มเลือกสี)
--- =================================================================
+-- ───────────────────── SETTINGS PAGE ─────────────────────
+local SettingsPage = CreatePage("Settings")
+
 local SettingsTitle = Instance.new("TextLabel")
-SettingsTitle.Size = UDim2.new(1, 0, 0, 28)
+SettingsTitle.Size = UDim2.new(1, 0, 0, 30)
 SettingsTitle.BackgroundTransparency = 1
 SettingsTitle.Text = "Elite Theme Customization"
 SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 SettingsTitle.Font = Enum.Font.GothamBold
-SettingsTitle.TextSize = 18
+SettingsTitle.TextSize = 20
 SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
 SettingsTitle.Parent = SettingsPage
 
 local ThemeCard = Instance.new("Frame")
-ThemeCard.Size = UDim2.new(1, 0, 0, 110)
-ThemeCard.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-ThemeCard.BackgroundTransparency = 0.5
+ThemeCard.Size = UDim2.new(1, 0, 0, 120)
+ThemeCard.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+ThemeCard.BackgroundTransparency = 0.45
 ThemeCard.Parent = SettingsPage
-Instance.new("UICorner", ThemeCard).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", ThemeCard).CornerRadius = UDim.new(0, 14)
 
 local ThemeDesc = Instance.new("TextLabel")
-ThemeDesc.Size = UDim2.new(1, -36, 0, 22)
-ThemeDesc.Position = UDim2.new(0, 18, 0, 14)
+ThemeDesc.Size = UDim2.new(1, -40, 0, 22)
+ThemeDesc.Position = UDim2.fromOffset(20, 16)
 ThemeDesc.BackgroundTransparency = 1
-ThemeDesc.Text = "Select Theme Accent (Including Luxury Gold)"
-ThemeDesc.TextColor3 = Color3.fromRGB(170, 170, 185)
+ThemeDesc.Text = "Select Theme Accent  •  Luxury Gold included"
+ThemeDesc.TextColor3 = Color3.fromRGB(160, 160, 175)
 ThemeDesc.Font = Enum.Font.GothamBold
-ThemeDesc.TextSize = 12
+ThemeDesc.TextSize = 13
 ThemeDesc.TextXAlignment = Enum.TextXAlignment.Left
 ThemeDesc.Parent = ThemeCard
 
 local ColorContainer = Instance.new("Frame")
-ColorContainer.Size = UDim2.new(1, -36, 0, 42)
-ColorContainer.Position = UDim2.new(0, 18, 0, 48)
+ColorContainer.Size = UDim2.new(1, -40, 0, 46)
+ColorContainer.Position = UDim2.fromOffset(20, 52)
 ColorContainer.BackgroundTransparency = 1
 ColorContainer.Parent = ThemeCard
 
 local ColorLayout = Instance.new("UIListLayout")
 ColorLayout.FillDirection = Enum.FillDirection.Horizontal
-ColorLayout.Padding = UDim.new(0, 12)
+ColorLayout.Padding = UDim.new(0, 14)
 ColorLayout.Parent = ColorContainer
 
 local function CreateColorButton(colorName, colorValue)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0, 40, 0, 40)
-    Btn.BackgroundColor3 = colorValue
-    Btn.Text = ""
-    Btn.Parent = ColorContainer
-    Instance.new("UICorner", Btn).CornerRadius = UDim.new(1, 0)
-    
-    local Stroke = Instance.new("UIStroke")
-    Stroke.Thickness = 2.5
-    Stroke.Color = Color3.fromRGB(255, 255, 255)
-    Stroke.Transparency = (colorName == CurrentThemeName) and 0 or 1
-    Stroke.Parent = Btn
-    
-    -- Hover อนิเมชั่นขยายวงสี
-    Btn.MouseEnter:Connect(function()
-        TweenService:Create(Btn, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 46, 0, 46)
-        }):Play()
-    end)
-    Btn.MouseLeave:Connect(function()
-        TweenService:Create(Btn, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 40, 0, 40)
-        }):Play()
-    end)
+	local Btn = Instance.new("TextButton")
+	Btn.Size = UDim2.fromOffset(42, 42)
+	Btn.BackgroundColor3 = colorValue
+	Btn.Text = ""
+	Btn.AutoButtonColor = false
+	Btn.Parent = ColorContainer
+	Instance.new("UICorner", Btn).CornerRadius = UDim.new(1, 0)
 
-    Btn.MouseButton1Click:Connect(function()
-        CurrentThemeName = colorName
-        for _, child in ipairs(ColorContainer:GetChildren()) do
-            if child:IsA("TextButton") and child:FindFirstChild("UIStroke") then
-                TweenService:Create(child.UIStroke, TweenInfo.new(0.2), {
-                    Transparency = (child == Btn) and 0 or 1
-                }):Play()
-            end
-        end
-        
-        local twInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-        for _, item in ipairs(ThemeElements) do
-            pcall(function()
-                TweenService:Create(item.Object, twInfo, {[item.Prop] = colorValue}):Play()
-            end)
-        end
-        CurrentTheme = colorValue
-        TweenService:Create(OpenButton, twInfo, {TextColor3 = colorValue}):Play()
-        TweenService:Create(OpenButtonStroke, twInfo, {Color = colorValue}):Play()
-        TweenService:Create(MainStroke, twInfo, {Color = colorValue}):Play()
-    end)
+	local Stroke = Instance.new("UIStroke")
+	Stroke.Thickness = 2.5
+	Stroke.Color = Color3.fromRGB(255, 255, 255)
+	Stroke.Transparency = (colorName == CurrentThemeName) and 0 or 1
+	Stroke.Parent = Btn
+
+	Btn.MouseEnter:Connect(function()
+		TweenService:Create(Btn, TweenInfo.new(0.2, Enum.EasingStyle.Back), {
+			Size = UDim2.fromOffset(48, 48)
+		}):Play()
+	end)
+	Btn.MouseLeave:Connect(function()
+		TweenService:Create(Btn, TweenInfo.new(0.2, Enum.EasingStyle.Quart), {
+			Size = UDim2.fromOffset(42, 42)
+		}):Play()
+	end)
+
+	Btn.MouseButton1Click:Connect(function()
+		CurrentThemeName = colorName
+		CurrentTheme = colorValue
+
+		for _, child in ipairs(ColorContainer:GetChildren()) do
+			if child:IsA("TextButton") and child:FindFirstChild("UIStroke") then
+				TweenService:Create(child.UIStroke, TweenInfo.new(0.25), {
+					Transparency = (child == Btn) and 0 or 1
+				}):Play()
+			end
+		end
+
+		ApplyTheme(colorValue, 0.4)
+
+		-- Update open button specifically
+		TweenService:Create(OpenButton, TweenInfo.new(0.35), {TextColor3 = colorValue}):Play()
+		TweenService:Create(OpenStroke, TweenInfo.new(0.35), {Color = colorValue}):Play()
+		TweenService:Create(OpenGlow, TweenInfo.new(0.35), {ImageColor3 = colorValue}):Play()
+	end)
 end
 
 CreateColorButton("Gold", THEMES.Gold)
@@ -752,6 +755,55 @@ CreateColorButton("Pink", THEMES.Pink)
 CreateColorButton("Cyan", THEMES.Cyan)
 CreateColorButton("Dark", THEMES.Dark)
 
-RegisterThemeColor(OpenButton, "TextColor3")
+-- ───────────────────── Open / Close / Minimize Logic ─────────────────────
+local isOpen = false
+local isMinimized = false
 
+local function OpenPanel()
+	if isOpen then return end
+	isOpen = true
+	MainFrame.Visible = true
+	MainFrame.Size = UDim2.fromOffset(0, 0)
+	MainFrame.BackgroundTransparency = 1
+
+	TweenService:Create(MainFrame, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Size = UDim2.fromOffset(800, 460),
+		BackgroundTransparency = 0.08
+	}):Play()
+end
+
+local function ClosePanel()
+	if not isOpen then return end
+	isOpen = false
+
+	local tw = TweenService:Create(MainFrame, TweenInfo.new(0.32, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+		Size = UDim2.fromOffset(0, 0),
+		BackgroundTransparency = 1
+	})
+	tw:Play()
+	tw.Completed:Connect(function()
+		MainFrame.Visible = false
+		isMinimized = false
+	end)
+end
+
+OpenButton.MouseButton1Click:Connect(function()
+	if isOpen then
+		ClosePanel()
+	else
+		OpenPanel()
+	end
+end)
+
+CloseButton.MouseButton1Click:Connect(ClosePanel)
+
+MinimizeButton.MouseButton1Click:Connect(function()
+	isMinimized = not isMinimized
+	local targetSize = isMinimized and UDim2.fromOffset(800, 54) or UDim2.fromOffset(800, 460)
+	TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+		Size = targetSize
+	}):Play()
+end)
+
+-- Start on Home
 SwitchPage("Home")
