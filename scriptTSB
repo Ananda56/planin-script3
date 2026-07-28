@@ -1,5 +1,5 @@
 -- =================================================================
--- ⚡ Executor Panel - Auto Die on Damage & Extreme Target Launcher
+-- ⚡ Executor Panel - Auto Die on Damage & Player Teleporter
 -- =================================================================
 
 local Players = game:GetService("Players")
@@ -24,8 +24,7 @@ local CurrentThemeName = "Red"
 -- States & Logic Variables
 local States = {
     AutoDie = false,
-    TargetPlayer = "",
-    LaunchPower = 85000 -- เพิ่มความแรงสุดขีดเพื่อให้เป้าหมายตัวปลิวหายไปจากแมพทันทีที่ชน
+    SelectedTarget = nil -- เก็บ Player object ของคนที่เลือก
 }
 
 local healthConnection = nil
@@ -71,62 +70,20 @@ if LocalPlayer.Character then
     SetupAutoDie()
 end
 
--- ฟังก์ชันวาร์ปไปกระแทกเป้าหมายแบบรุนแรงเพื่อให้ตัวปลิวทะลุมิติ/นอกโลก
-local function LaunchTarget()
-    if not States.TargetPlayer or States.TargetPlayer == "" then return end
-    
-    local targetPlr = nil
-    local searchName = string.lower(States.TargetPlayer)
-    
-    -- ระบบค้นหาชื่อแบบรองรับทั้งพิมพ์ตัวเล็ก-ใหญ่ หรือพิมพ์แค่บางส่วนของชื่อ
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            if string.lower(p.Name) == searchName or string.lower(p.DisplayName) == searchName or string.sub(string.lower(p.Name), 1, #searchName) == searchName then
-                targetPlr = p
-                break
-            end
-        end
-    end
-    
-    if not targetPlr or not targetPlr.Character then return end
+-- ฟังก์ชันวาร์ปไปหาคนที่เลือก (แค่วาร์ปไปหาเฉยๆ)
+local function TeleportToTarget()
+    if not States.SelectedTarget or not States.SelectedTarget.Character then return end
     
     local myChar = LocalPlayer.Character
-    local targetChar = targetPlr.Character
+    local targetChar = States.SelectedTarget.Character
     
     if not myChar or not targetChar then return end
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
-    local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
     
     if myRoot and targetRoot then
-        -- 1. ยกเลิกสถานะนั่ง/แกล้งตายของเป้าหมายชั่วคราว
-        if targetHumanoid then
-            targetHumanoid.PlatformStand = false
-        end
-        
-        -- 2. วาร์ปตัวเราไปทับตำแหน่งเป้าหมายพอดีเป๊ะเพื่อสร้างแรงปะทะ (Collision)
-        myRoot.CFrame = targetRoot.CFrame
-        
-        -- 3. เสกแรงกระแทกมหาศาล (LinearVelocity / BodyVelocity + AngularVelocity เพื่อให้หมุนเคว้งคว้างตัวปลิว)
-        local attachment = Instance.new("Attachment", targetRoot)
-        
-        local bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        -- ดีดเป้าหมายพุ่งขึ้นฟ้าและพุ่งออกด้านหน้าอย่างรุนแรง
-        bv.Velocity = (targetRoot.CFrame.LookVector * States.LaunchPower) + Vector3.new(0, States.LaunchPower * 1.5, 0)
-        bv.Parent = targetRoot
-        
-        local bav = Instance.new("BodyAngularVelocity")
-        bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-        bav.AngularVelocity = Vector3.new(math.random(50, 200), math.random(50, 200), math.random(50, 200))
-        bav.Parent = targetRoot
-        
-        -- ทำลายแรงเหวี่ยงหลังจากผ่านไป 0.6 วินาที (เพื่อให้เป้าหมายปลิวหายลับไป)
-        task.delay(0.6, function()
-            if bv then bv:Destroy() end
-            if bav then bav:Destroy() end
-            if attachment then attachment:Destroy() end
-        end)
+        -- วาร์ปไปข้างหน้าหรือทับตำแหน่งเป้าหมายพอดี
+        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
     end
 end
 
@@ -203,10 +160,10 @@ Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
 local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(0, 380, 1, 0)
+HeaderTitle.Size = UDim2.new(0, 350, 1, 0)
 HeaderTitle.Position = UDim2.new(0, 16, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "💀 Auto Die & Extreme Target Launcher"
+HeaderTitle.Text = "💀 Auto Die & Player Teleporter"
 HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeaderTitle.Font = Enum.Font.GothamBold
 HeaderTitle.TextSize = 14
@@ -367,7 +324,7 @@ local function CreatePage(name)
 end
 
 CreateNavButton("Home", "🏠 Home", 15)
-CreateNavButton("Target", "🎯 Target Launcher", 65)
+CreateNavButton("Teleport", "🎯 Player Selector", 65)
 CreateNavButton("Settings", "⚙️ Settings", 115)
 
 -- =================================================================
@@ -457,71 +414,99 @@ CreateToggleCard("Auto Die on Damage", "Waits 0.5 seconds after taking damage, t
 end)
 
 -- =================================================================
--- 6.1 Page: Target Launcher (ส่งเป้าหมายตัวปลิวออกนอกโลก)
+-- 6.1 Page: Player Selector & Teleport (ระบบกดเลือกชื่อผู้เล่นในห้องเพื่อวาร์ป)
 -- =================================================================
-local TargetPage = CreatePage("Target")
+local TeleportPage = CreatePage("Teleport")
 
-local TargetTitle = Instance.new("TextLabel")
-TargetTitle.Size = UDim2.new(1, 0, 0, 25)
-TargetTitle.BackgroundTransparency = 1
-TargetTitle.Text = "Target Launcher Settings"
-TargetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-TargetTitle.Font = Enum.Font.GothamBold
-TargetTitle.TextSize = 18
-TargetTitle.TextXAlignment = Enum.TextXAlignment.Left
-TargetTitle.Parent = TargetPage
+local TeleportTitle = Instance.new("TextLabel")
+TeleportTitle.Size = UDim2.new(1, 0, 0, 25)
+TeleportTitle.BackgroundTransparency = 1
+TeleportTitle.Text = "Select Player to Teleport"
+TeleportTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+TeleportTitle.Font = Enum.Font.GothamBold
+TeleportTitle.TextSize = 18
+TeleportTitle.TextXAlignment = Enum.TextXAlignment.Left
+TeleportTitle.Parent = TeleportPage
 
-local TargetCard = Instance.new("Frame")
-TargetCard.Size = UDim2.new(1, 0, 0, 75)
-TargetCard.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-TargetCard.BackgroundTransparency = 0.4
-TargetCard.Parent = TargetPage
-Instance.new("UICorner", TargetCard).CornerRadius = UDim.new(0, 8)
+-- ปุ่มกดสั่งวาร์ป
+local TpBtn = Instance.new("TextButton")
+TpBtn.Size = UDim2.new(1, 0, 0, 42)
+TpBtn.BackgroundColor3 = CurrentTheme
+TpBtn.AutoButtonColor = false
+TpBtn.Text = "⚡ Teleport to Selected Player"
+TpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+TpBtn.Font = Enum.Font.GothamBold
+TpBtn.TextSize = 14
+TpBtn.Parent = TeleportPage
+Instance.new("UICorner", TpBtn).CornerRadius = UDim.new(0, 8)
+RegisterThemeColor(TpBtn, "BackgroundColor3")
 
-local TargetCardDesc = Instance.new("TextLabel")
-TargetCardDesc.Size = UDim2.new(1, -30, 0, 20)
-TargetCardDesc.Position = UDim2.new(0, 15, 0, 10)
-TargetCardDesc.BackgroundTransparency = 1
-TargetCardDesc.Text = "Enter Target Player Name (Full or Partial)"
-TargetCardDesc.TextColor3 = Color3.fromRGB(180, 180, 180)
-TargetCardDesc.Font = Enum.Font.GothamMedium
-TargetCardDesc.TextSize = 12
-TargetCardDesc.TextXAlignment = Enum.TextXAlignment.Left
-TargetCardDesc.Parent = TargetCard
-
-local TargetInputBox = Instance.new("TextBox")
-TargetInputBox.Size = UDim2.new(1, -30, 0, 32)
-TargetInputBox.Position = UDim2.new(0, 15, 0, 35)
-TargetInputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-TargetInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-TargetInputBox.PlaceholderText = "Type player name here..."
-TargetInputBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
-TargetInputBox.Font = Enum.Font.Gotham
-TargetInputBox.TextSize = 13
-TargetInputBox.Text = ""
-TargetInputBox.Parent = TargetCard
-Instance.new("UICorner", TargetInputBox).CornerRadius = UDim.new(0, 6)
-
-TargetInputBox:GetPropertyChangedSignal("Text"):Connect(function()
-    States.TargetPlayer = TargetInputBox.Text
+TpBtn.MouseButton1Click:Connect(function()
+    TeleportToTarget()
 end)
 
-local LaunchBtnCard = Instance.new("TextButton")
-LaunchBtnCard.Size = UDim2.new(1, 0, 0, 45)
-LaunchBtnCard.BackgroundColor3 = CurrentTheme
-LaunchBtnCard.AutoButtonColor = false
-LaunchBtnCard.Text = "🚀 Crash & Send Target Flying!"
-LaunchBtnCard.TextColor3 = Color3.fromRGB(255, 255, 255)
-LaunchBtnCard.Font = Enum.Font.GothamBold
-LaunchBtnCard.TextSize = 14
-LaunchBtnCard.Parent = TargetPage
-Instance.new("UICorner", LaunchBtnCard).CornerRadius = UDim.new(0, 8)
-RegisterThemeColor(LaunchBtnCard, "BackgroundColor3")
+-- รายการผู้เล่นในเซิร์ฟเวอร์แบบสคริปต์สร้างรายชื่อให้อัตโนมัติ
+local PlayerListContainer = Instance.new("ScrollingFrame")
+PlayerListContainer.Size = UDim2.new(1, 0, 0, 220)
+PlayerListContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+PlayerListContainer.BackgroundTransparency = 0.4
+PlayerListContainer.BorderSizePixel = 0
+PlayerListContainer.ScrollBarThickness = 3
+PlayerListContainer.Parent = TeleportPage
+Instance.new("UICorner", PlayerListContainer).CornerRadius = UDim.new(0, 8)
 
-LaunchBtnCard.MouseButton1Click:Connect(function()
-    States.TargetPlayer = TargetInputBox.Text
-    LaunchTarget()
-end)
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding = UDim.new(0, 5)
+ListLayout.Parent = PlayerListContainer
+
+local ListPadding = Instance.new("UIPadding")
+ListPadding.PaddingTop = UDim.new(0, 8)
+ListPadding.PaddingLeft = UDim.new(0, 8)
+ListPadding.PaddingRight = UDim.new(0, 8)
+ListPadding.PaddingBottom = UDim.new(0, 8)
+ListPadding.Parent = PlayerListContainer
+
+local function RefreshPlayerList()
+    for _, child in ipairs(PlayerListContainer:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local pBtn = Instance.new("TextButton")
+            pBtn.Size = UDim2.new(1, 0, 0, 36)
+            pBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+            pBtn.AutoButtonColor = false
+            pBtn.Text = "  👤 " .. plr.Name .. " (@" .. plr.DisplayName .. ")"
+            pBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
+            pBtn.Font = Enum.Font.GothamMedium
+            pBtn.TextSize = 13
+            pBtn.TextXAlignment = Enum.TextXAlignment.Left
+            pBtn.Parent = PlayerListContainer
+            Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 6)
+            
+            pBtn.MouseButton1Click:Connect(function()
+                States.SelectedTarget = plr
+                -- เปลี่ยนสีปุ่มทั้งหมดให้เป็นปกติ และเน้นปุ่มที่เลือก
+                for _, btn in ipairs(PlayerListContainer:GetChildren()) do
+                    if btn:IsA("TextButton") then
+                        btn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+                        btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+                    end
+                end
+                pBtn.BackgroundColor3 = CurrentTheme
+                pBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            end)
+        end
+    end
+end
+
+RefreshPlayerList()
+Players.PlayerAdded:Connect(RefreshPlayerList)
+Players.PlayerRemoving:Connect(RefreshPlayerList)
 
 -- =================================================================
 -- 7. Page: Settings (Theme Customization)
