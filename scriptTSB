@@ -1,5 +1,5 @@
 -- =================================================================
--- ⚡ Executor Panel - Auto Die on Damage
+-- ⚡ Executor Panel - Auto Die on Damage & Player Launcher
 -- =================================================================
 
 local Players = game:GetService("Players")
@@ -18,17 +18,16 @@ local THEMES = {
     Black = Color3.fromHex("#111111")
 }
 
-local CurrentTheme = THEMES.Red -- ตั้งค่าเริ่มต้นเป็นสีแดงให้เข้ากับระบบตาย
+local CurrentTheme = THEMES.Red
 local CurrentThemeName = "Red"
 
 -- States & Logic Variables
 local States = {
-    AutoDie = false,      -- สถานะเปิด-ปิดระบบตายอัตโนมัติ
-    WalkSpeed = 16,
-    JumpHeight = 50
+    AutoDie = false,
+    TargetPlayer = nil, -- เก็บชื่อผู้เล่นเป้าหมายที่จะพุ่งไปชน
+    LaunchPower = 5000  -- ความแรงในการซัดออกนอกโลก
 }
 
--- ตัวแปรเก็บ Connection ของ Health เพื่อดักจับตอนเลือดลด (โดนดาเมจ)
 local healthConnection = nil
 local isProcessingDeath = false
 
@@ -43,24 +42,20 @@ local function SetupAutoDie()
     
     local lastHealth = humanoid.Health
     
-    -- ดักฟังเหตุการณ์เมื่อเลือดเปลี่ยนแปลง
     healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
         if States.AutoDie and not isProcessingDeath then
-            -- ถ้าเลือดลดลงจากเดิม (แปลว่าโดนดาเมจ) และตัวละครยังไม่ตาย
             if currentHealth < lastHealth and currentHealth > 0 then
                 isProcessingDeath = true
                 
-                -- หน่วงเวลา 0.5 วินาที ตามที่ต้องการ
                 task.wait(0.5)
                 
-                -- สั่งให้ตัวละครตายทันที (เซ็ต Health เป็น 0 หรือทำลาย Humanoid)
                 pcall(function()
                     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                         LocalPlayer.Character.Humanoid.Health = 0
                     end
                 end)
                 
-                task.wait(1) -- กันลูปซ้ำซ้อนขณะเกิดใหม่
+                task.wait(1)
                 isProcessingDeath = false
             end
         end
@@ -68,13 +63,41 @@ local function SetupAutoDie()
     end)
 end
 
--- ผูกเข้ากับตัวละครปัจจุบันและตอนเกิดใหม่ (Respawn)
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(1)
     SetupAutoDie()
 end)
 if LocalPlayer.Character then
     SetupAutoDie()
+end
+
+-- ฟังก์ชันสำหรับวาร์ปไปชนเป้าหมายแล้วส่งเป้าหมายปลิวออกนอกโลก
+local function LaunchTarget()
+    if not States.TargetPlayer or States.TargetPlayer == "" then return end
+    local targetPlr = Players:FindFirstChild(States.TargetPlayer)
+    if not targetPlr or not targetPlr.Character then return end
+    
+    local myChar = LocalPlayer.Character
+    local targetChar = targetPlr.Character
+    
+    if not myChar or not targetChar then return end
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+    
+    if myRoot and targetRoot then
+        -- 1. วาร์ปไปหาเป้าหมายทันที
+        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 1)
+        
+        -- 2. ใส่แรงกระแทกมหาศาล (Velocity / BodyVelocity) ให้เป้าหมายพุ่งขึ้นฟ้า/นอกโลก
+        local bv = Instance.new("BodyVelocity")
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(0, States.LaunchPower, 0) + (targetRoot.Position - myRoot.Position).Unit * (States.LaunchPower / 2)
+        bv.Parent = targetRoot
+        
+        task.delay(0.2, function()
+            if bv then bv:Destroy() end
+        end)
+    end
 end
 
 -- =================================================================
@@ -150,10 +173,10 @@ Header.BorderSizePixel = 0
 Header.Parent = MainFrame
 
 local HeaderTitle = Instance.new("TextLabel")
-HeaderTitle.Size = UDim2.new(0, 300, 1, 0)
+HeaderTitle.Size = UDim2.new(0, 350, 1, 0)
 HeaderTitle.Position = UDim2.new(0, 16, 0, 0)
 HeaderTitle.BackgroundTransparency = 1
-HeaderTitle.Text = "💀 Auto Die on Damage Panel"
+HeaderTitle.Text = "💀 Auto Die & Target Launcher Panel"
 HeaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 HeaderTitle.Font = Enum.Font.GothamBold
 HeaderTitle.TextSize = 14
@@ -314,7 +337,8 @@ local function CreatePage(name)
 end
 
 CreateNavButton("Home", "🏠 Home", 15)
-CreateNavButton("Settings", "⚙️ Settings", 65)
+CreateNavButton("Target", "🎯 Target Launcher", 65)
+CreateNavButton("Settings", "⚙️ Settings", 115)
 
 -- =================================================================
 -- 6. Page: Home (Auto Die Controls)
@@ -398,9 +422,77 @@ local function CreateToggleCard(titleText, descText, callback)
     return ToggleBg
 end
 
--- Toggle หลัก: เปิด-ปิด ระบบโดนดาเมจแล้วตายหลัง 0.5 วิ
 CreateToggleCard("Auto Die on Damage", "Waits 0.5 seconds after taking damage, then instantly dies", function(state)
     States.AutoDie = state
+end)
+
+-- =================================================================
+-- 6.1 Page: Target Launcher (เลือกคนที่จะพุ่งไปชนให้ปลิว)
+-- =================================================================
+local TargetPage = CreatePage("Target")
+
+local TargetTitle = Instance.new("TextLabel")
+TargetTitle.Size = UDim2.new(1, 0, 0, 25)
+TargetTitle.BackgroundTransparency = 1
+TargetTitle.Text = "Target Launcher Settings"
+TargetTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetTitle.Font = Enum.Font.GothamBold
+TargetTitle.TextSize = 18
+TargetTitle.TextXAlignment = Enum.TextXAlignment.Left
+TargetTitle.Parent = TargetPage
+
+-- Card เลือกชื่อเป้าหมาย
+local TargetCard = Instance.new("Frame")
+TargetCard.Size = UDim2.new(1, 0, 0, 75)
+TargetCard.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+TargetCard.BackgroundTransparency = 0.4
+TargetCard.Parent = TargetPage
+Instance.new("UICorner", TargetCard).CornerRadius = UDim.new(0, 8)
+
+local TargetCardDesc = Instance.new("TextLabel")
+TargetCardDesc.Size = UDim2.new(1, -30, 0, 20)
+TargetCardDesc.Position = UDim2.new(0, 15, 0, 10)
+TargetCardDesc.BackgroundTransparency = 1
+TargetCardDesc.Text = "Enter Target Player Name (Exact or Full Name)"
+TargetCardDesc.TextColor3 = Color3.fromRGB(180, 180, 180)
+TargetCardDesc.Font = Enum.Font.GothamMedium
+TargetCardDesc.TextSize = 12
+TargetCardDesc.TextXAlignment = Enum.TextXAlignment.Left
+TargetCardDesc.Parent = TargetCard
+
+local TargetInputBox = Instance.new("TextBox")
+TargetInputBox.Size = UDim2.new(1, -30, 0, 32)
+TargetInputBox.Position = UDim2.new(0, 15, 0, 35)
+TargetInputBox.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+TargetInputBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+TargetInputBox.PlaceholderText = "Type player name here..."
+TargetInputBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+TargetInputBox.Font = Enum.Font.Gotham
+TargetInputBox.TextSize = 13
+TargetInputBox.Text = ""
+TargetInputBox.Parent = TargetCard
+Instance.new("UICorner", TargetInputBox).CornerRadius = UDim.new(0, 6)
+
+TargetInputBox.FocusLost:Connect(function()
+    States.TargetPlayer = TargetInputBox.Text
+end)
+
+-- ปุ่มกดสั่งทำงานพุ่งชนเป้าหมาย
+local LaunchBtnCard = Instance.new("TextButton")
+LaunchBtnCard.Size = UDim2.new(1, 0, 0, 45)
+LaunchBtnCard.BackgroundColor3 = CurrentTheme
+LaunchBtnCard.AutoButtonColor = false
+LaunchBtnCard.Text = "🚀 Teleport & Launch Target to Space"
+LaunchBtnCard.TextColor3 = Color3.fromRGB(255, 255, 255)
+LaunchBtnCard.Font = Enum.Font.GothamBold
+LaunchBtnCard.TextSize = 14
+LaunchBtnCard.Parent = TargetPage
+Instance.new("UICorner", LaunchBtnCard).CornerRadius = UDim.new(0, 8)
+RegisterThemeColor(LaunchBtnCard, "BackgroundColor3")
+
+LaunchBtnCard.MouseButton1Click:Connect(function()
+    States.TargetPlayer = TargetInputBox.Text
+    LaunchTarget()
 end)
 
 -- =================================================================
