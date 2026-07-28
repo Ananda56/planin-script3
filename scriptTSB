@@ -84,6 +84,8 @@ local State = {
 	Favorites      = {},         -- set of button ids
 	Keybinds       = {},         -- id → KeyCode
 	KeybindActions = {},         -- id → function
+	SpawnCFrame    = nil,        -- saved spawn CFrame
+	AutoSpawn      = false,      -- auto-teleport to spawn on respawn
 }
 
 -- ═══════════════════════════════════════════════════════
@@ -1003,9 +1005,78 @@ local function SetupAutoDie()
 	end)
 end
 
+-- ═══════════════════════════════════════════════════════
+-- SETSPAWN LOGIC
+-- ═══════════════════════════════════════════════════════
+local spawnCoordLabel = nil  -- forward ref to UI label (assigned after UI build)
+
+local function FormatCoords(cf)
+	if not cf then return "ไม่ได้ตั้งค่า" end
+	local p = cf.Position
+	return string.format("X:%.1f  Y:%.1f  Z:%.1f", p.X, p.Y, p.Z)
+end
+
+local function SetSpawn()
+	local char = LocalPlayer.Character
+	if not char then
+		Notify("Set Spawn", "ไม่พบตัวละคร กรุณาลองใหม่", 2.5, "⚠️")
+		return
+	end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if not root then
+		Notify("Set Spawn", "ไม่พบ HumanoidRootPart", 2.5, "⚠️")
+		return
+	end
+	State.SpawnCFrame = root.CFrame
+	if spawnCoordLabel then
+		spawnCoordLabel.Text = "📍 " .. FormatCoords(State.SpawnCFrame)
+	end
+	Notify("Set Spawn", "บันทึกจุด Spawn แล้ว:\n" .. FormatCoords(State.SpawnCFrame), 3, "📍")
+end
+
+local function GoToSpawn()
+	if not State.SpawnCFrame then
+		Notify("Go to Spawn", "ยังไม่ได้ตั้งจุด Spawn กด Set ก่อน", 3, "⚠️")
+		return
+	end
+	local char = LocalPlayer.Character
+	if not char then return end
+	local root = char:FindFirstChild("HumanoidRootPart")
+	if root then
+		root.CFrame = State.SpawnCFrame
+		Notify("Go to Spawn", "เทเลพอร์ตไปยังจุด Spawn", 2, "🏃")
+	end
+end
+
+local function ClearSpawn()
+	if not State.SpawnCFrame then
+		Notify("Clear Spawn", "ยังไม่มีจุด Spawn ที่ตั้งไว้", 2, "ℹ️")
+		return
+	end
+	State.SpawnCFrame = nil
+	if spawnCoordLabel then
+		spawnCoordLabel.Text = "📍 ไม่ได้ตั้งค่า"
+	end
+	Notify("Clear Spawn", "ล้างจุด Spawn แล้ว", 2, "🗑️")
+end
+
 LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(0.8)
 	SetupAutoDie()
+	-- Auto-teleport to saved spawn if enabled
+	if State.AutoSpawn and State.SpawnCFrame then
+		task.wait(0.5)
+		pcall(function()
+			local char = LocalPlayer.Character
+			if char then
+				local root = char:FindFirstChild("HumanoidRootPart")
+				if root then
+					root.CFrame = State.SpawnCFrame
+					Notify("Auto Spawn", "เทเลพอร์ตกลับจุด Spawn อัตโนมัติ", 2.5, "📍")
+				end
+			end
+		end)
+	end
 end)
 
 if LocalPlayer.Character then
@@ -1058,6 +1129,157 @@ CreateToggle(CombatPage, "anti_aim", "Anti-Aim Toggle",
 	function(v)
 		Notify("Anti-Aim", v and "Activated" or "Deactivated", 2, "🔄")
 	end, 4)
+
+-- SetSpawn UI Card
+do
+	local spawnCard = Instance.new("Frame")
+	spawnCard.Name = "setspawn_card"
+	spawnCard.Size = UDim2.new(1, 0, 0, 158)
+	spawnCard.BackgroundColor3 = Color3.fromHex("#111118")
+	spawnCard.BackgroundTransparency = 0.3
+	spawnCard.LayoutOrder = 5
+	spawnCard.ZIndex = 4
+	spawnCard.Parent = CombatPage
+	MakeCorner(spawnCard, 16)
+	MakeStroke(spawnCard, 1, Color3.fromRGB(255,255,255), 0.9)
+
+	-- Header row
+	local spawnIcon = Instance.new("TextLabel")
+	spawnIcon.Size = UDim2.fromOffset(28, 28)
+	spawnIcon.Position = UDim2.fromOffset(14, 12)
+	spawnIcon.BackgroundTransparency = 1
+	spawnIcon.Text = "📍"
+	spawnIcon.TextSize = 18
+	spawnIcon.Font = Enum.Font.GothamBold
+	spawnIcon.ZIndex = 5
+	spawnIcon.Parent = spawnCard
+
+	local spawnTitle = Instance.new("TextLabel")
+	spawnTitle.Size = UDim2.new(1, -50, 0, 22)
+	spawnTitle.Position = UDim2.fromOffset(46, 14)
+	spawnTitle.BackgroundTransparency = 1
+	spawnTitle.Text = "Set Spawn Point"
+	spawnTitle.TextColor3 = Color3.fromRGB(240, 240, 255)
+	spawnTitle.Font = Enum.Font.GothamBold
+	spawnTitle.TextSize = 14
+	spawnTitle.TextXAlignment = Enum.TextXAlignment.Left
+	spawnTitle.ZIndex = 5
+	spawnTitle.Parent = spawnCard
+
+	-- Coordinate display
+	local coordBg = Instance.new("Frame")
+	coordBg.Size = UDim2.new(1, -28, 0, 28)
+	coordBg.Position = UDim2.fromOffset(14, 44)
+	coordBg.BackgroundColor3 = Color3.fromHex("#08080F")
+	coordBg.BackgroundTransparency = 0.2
+	coordBg.ZIndex = 5
+	coordBg.Parent = spawnCard
+	MakeCorner(coordBg, 8)
+
+	local coordLabel = Instance.new("TextLabel")
+	coordLabel.Size = UDim2.fromScale(1, 1)
+	coordLabel.BackgroundTransparency = 1
+	coordLabel.Text = "📍 ไม่ได้ตั้งค่า"
+	coordLabel.TextColor3 = CurrentTheme
+	coordLabel.Font = Enum.Font.GothamBold
+	coordLabel.TextSize = 11
+	coordLabel.ZIndex = 6
+	coordLabel.Parent = coordBg
+	RegisterTheme(coordLabel, "TextColor3")
+	spawnCoordLabel = coordLabel  -- hook into logic
+
+	-- Button row
+	local btnRow = Instance.new("Frame")
+	btnRow.Size = UDim2.new(1, -28, 0, 40)
+	btnRow.Position = UDim2.fromOffset(14, 82)
+	btnRow.BackgroundTransparency = 1
+	btnRow.ZIndex = 5
+	btnRow.Parent = spawnCard
+
+	local btnLayout = Instance.new("UIListLayout")
+	btnLayout.FillDirection = Enum.FillDirection.Horizontal
+	btnLayout.Padding = UDim.new(0, 8)
+	btnLayout.Parent = btnRow
+
+	local function MakeSpawnBtn(label, color, textColor, clickFn)
+		local b = Instance.new("TextButton")
+		b.Size = UDim2.new(0.333, -6, 1, 0)
+		b.BackgroundColor3 = color
+		b.BackgroundTransparency = 0.15
+		b.Text = label
+		b.TextColor3 = textColor
+		b.Font = Enum.Font.GothamBold
+		b.TextSize = 12
+		b.AutoButtonColor = false
+		b.ZIndex = 6
+		b.Parent = btnRow
+		MakeCorner(b, 10)
+		AddRipple(b)
+
+		b.MouseEnter:Connect(function()
+			Tween(b, BackOut(0.2), { BackgroundTransparency = 0, Size = UDim2.new(0.333, -6, 1, 4) })
+		end)
+		b.MouseLeave:Connect(function()
+			Tween(b, QuartOut(0.2), { BackgroundTransparency = 0.15, Size = UDim2.new(0.333, -6, 1, 0) })
+		end)
+		b.MouseButton1Click:Connect(function() pcall(clickFn) end)
+		return b
+	end
+
+	MakeSpawnBtn("📍 SET",   Color3.fromHex("#34D399"), Color3.fromRGB(10, 30, 20), SetSpawn)
+	MakeSpawnBtn("🏃 GO",    CurrentTheme,              Color3.fromRGB(12, 12, 20), GoToSpawn)
+	MakeSpawnBtn("🗑️ CLEAR", Color3.fromHex("#F87171"), Color3.fromRGB(30, 10, 10), ClearSpawn)
+
+	-- Auto-Spawn toggle row
+	local autoRow = Instance.new("Frame")
+	autoRow.Size = UDim2.new(1, -28, 0, 26)
+	autoRow.Position = UDim2.fromOffset(14, 128)
+	autoRow.BackgroundTransparency = 1
+	autoRow.ZIndex = 5
+	autoRow.Parent = spawnCard
+
+	local autoLabel = Instance.new("TextLabel")
+	autoLabel.Size = UDim2.new(1, -70, 1, 0)
+	autoLabel.BackgroundTransparency = 1
+	autoLabel.Text = "🔄 Auto-Spawn on Respawn"
+	autoLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
+	autoLabel.Font = Enum.Font.GothamBold
+	autoLabel.TextSize = 11
+	autoLabel.TextXAlignment = Enum.TextXAlignment.Left
+	autoLabel.ZIndex = 6
+	autoLabel.Parent = autoRow
+
+	local autoToggle = Instance.new("TextButton")
+	autoToggle.Size = UDim2.fromOffset(44, 24)
+	autoToggle.Position = UDim2.new(1, -44, 0.5, -12)
+	autoToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+	autoToggle.Text = ""
+	autoToggle.AutoButtonColor = false
+	autoToggle.ZIndex = 6
+	autoToggle.Parent = autoRow
+	MakeCorner(autoToggle, 12)
+	AddRipple(autoToggle)
+
+	local autoCircle = Instance.new("Frame")
+	autoCircle.Size = UDim2.fromOffset(18, 18)
+	autoCircle.Position = UDim2.fromOffset(3, 3)
+	autoCircle.BackgroundColor3 = Color3.fromRGB(200, 200, 215)
+	autoCircle.ZIndex = 7
+	autoCircle.Parent = autoToggle
+	MakeCorner(autoCircle, 9)
+
+	autoToggle.MouseButton1Click:Connect(function()
+		State.AutoSpawn = not State.AutoSpawn
+		local pos = State.AutoSpawn and UDim2.new(1, -21, 0, 3) or UDim2.fromOffset(3, 3)
+		local col = State.AutoSpawn and CurrentTheme or Color3.fromRGB(35, 35, 45)
+		Tween(autoCircle, BackOut(0.3), { Position = pos })
+		Tween(autoToggle, QuartOut(0.3), { BackgroundColor3 = col })
+		Notify("Auto Spawn", State.AutoSpawn and "เปิดแล้ว — จะกลับจุด Spawn อัตโนมัติ" or "ปิดแล้ว", 2.5, "🔄")
+	end)
+	RegisterTheme(autoToggle, "BackgroundColor3")
+
+	RegisterSearchable("setspawn_card", spawnCard, "Set Spawn Point")
+end
 
 -- ─── RADAR / TELEPORT PAGE ───
 local RadarPage = CreatePage("Radar")
