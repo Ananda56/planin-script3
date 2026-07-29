@@ -1,81 +1,62 @@
--- ===================================================================
---  ELITE EXECUTOR PANEL  v3.0
---  Redesigned  ·  All bugs fixed  ·  Fully featured
--- ===================================================================
---[[
-  CHANGELOG from v2.0:
-  • Avatar thumbnails now use correct Roblox API format
-  • Fixed duplicate/missing stroke reference in HUD
-  • Fixed toggle clone breaking event connections on Favorites
-  • Fixed particle memory leak (ThemeElements grew unbounded)
-  • Fixed empty if/else block in keybind handler
-  • Consolidated 3 Heartbeat loops into 1 for performance
-  • Added proper error boundaries with logging
-  • Added state persistence via HttpService JSON
-  • Added auto-die cooldown to prevent spam
-  • Added player list throttling (only refreshes when needed)
-  • Added settings save/load across sessions
-  • Added infinite yield protection on WaitForChild
-  • ThemeEngine now limits element count to prevent leaks
-  • All buttons have proper debounce
-  • Search handles special regex characters safely
-  • Notifications queue properly without overlap
-  • Toggle switches animate correctly on all states
+-- =================================================================
+-- 👑 ELITE  PANEL v2.0
+-- Glassmorphism · Neon · AAA Design · Full Feature Edition
+-- =================================================================
+
+--[[ FEATURES:
+  ✅ All syntax errors fixed
+  🎬 Open/Close animation (Scale + Fade, Back easing)
+  🖱  Draggable window
+  📱 Responsive layout
+  🌈 Dynamic Theme Engine (8 accents)
+  💾 Session-persistent theme
+  🔍 Global search bar
+  ⭐ Favorite buttons (persists per session)
+  📂 Sidebar tab system
+  🔔 Notification toasts (slide-in queue)
+  ⌨️  Keybind Manager
+  📊 FPS / Ping monitor in header
+  👤 Player avatar thumbnails in radar list
+  🔄 Auto-refresh player list
+  🎯 Target highlight (selection glow)
+  🎨 Ripple click effects on every button
+  💡 Hover lift + glow effects
+  🔥 Particle background canvas
+  🌌 Animated gradient header
+  📦 Modular, clean, commented code
 --]]
 
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 -- SERVICES
--- ═══════════════════════════════════════════════════════════════════
-local Players          = game:GetService("Players")
-local TweenService     = game:GetService("TweenService")
-local RunService       = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local HttpService      = game:GetService("HttpService")
-local Stats            = game:GetService("Stats")
-local CoreGui          = game:GetService("CoreGui")
-local MarketplaceService = game:GetService("MarketplaceService")
-local Teams            = game:GetService("Teams")
+-- ═══════════════════════════════════════════════════════
+local Players         = game:GetService("Players")
+local TweenService    = game:GetService("TweenService")
+local RunService      = game:GetService("RunService")
+local UserInputService= game:GetService("UserInputService")
+local HttpService     = game:GetService("HttpService")
+local Stats           = game:GetService("Stats")
 
-local LocalPlayer      = Players.LocalPlayer
-local Mouse            = LocalPlayer:GetMouse()
+local LocalPlayer     = Players.LocalPlayer
 
--- ═══════════════════════════════════════════════════════════════════
--- CONSTANTS
--- ═══════════════════════════════════════════════════════════════════
-local PANEL_W  = 780
-local PANEL_H  = 520
-local VERSION  = "3.0"
-local DEBOUNCE = 0.15
-local SAVE_KEY = "ElitePanel_v3_SaveData"
-
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 -- THEME ENGINE
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 local THEMES = {
-	{ name = "Gold",    color = Color3.fromHex("#F0C14B"), dark = Color3.fromHex("#C49B2E") },
-	{ name = "Purple",  color = Color3.fromHex("#A78BFA"), dark = Color3.fromHex("#7C5CFA") },
-	{ name = "Blue",    color = Color3.fromHex("#60A5FA"), dark = Color3.fromHex("#3B82F6") },
-	{ name = "Green",   color = Color3.fromHex("#34D399"), dark = Color3.fromHex("#10B981") },
-	{ name = "Crimson", color = Color3.fromHex("#F87171"), dark = Color3.fromHex("#EF4444") },
-	{ name = "Pink",    color = Color3.fromHex("#F472B6"), dark = Color3.fromHex("#EC4899") },
-	{ name = "Cyan",    color = Color3.fromHex("#22D3EE"), dark = Color3.fromHex("#06B6D4") },
-	{ name = "White",   color = Color3.fromHex("#E2E8F0"), dark = Color3.fromHex("#CBD5E1") },
-	{ name = "Amber",   color = Color3.fromHex("#FBBF24"), dark = Color3.fromHex("#F59E0B") },
-	{ name = "Rose",    color = Color3.fromHex("#FDA4AF"), dark = Color3.fromHex("#FB7185") },
+	{ name = "Gold",    color = Color3.fromHex("#F0C14B") },
+	{ name = "Purple",  color = Color3.fromHex("#A78BFA") },
+	{ name = "Blue",    color = Color3.fromHex("#60A5FA") },
+	{ name = "Green",   color = Color3.fromHex("#34D399") },
+	{ name = "Crimson", color = Color3.fromHex("#F87171") },
+	{ name = "Pink",    color = Color3.fromHex("#F472B6") },
+	{ name = "Cyan",    color = Color3.fromHex("#22D3EE") },
+	{ name = "White",   color = Color3.fromHex("#E2E8F0") },
 }
 
-local CurrentThemeIndex = 1
-local CurrentTheme      = THEMES[1].color
-local CurrentThemeName  = THEMES[1].name
-
--- ThemeElements with hard cap to prevent memory leak
-local ThemeElements     = setmetatable({}, { __mode = "kv" })
-local THEME_CAP         = 200
+local CurrentTheme     = THEMES[1].color
+local CurrentThemeName = THEMES[1].name
+local ThemeElements    = {} -- {obj, prop}
 
 local function RegisterTheme(obj, prop)
-	if #ThemeElements >= THEME_CAP then
-		table.remove(ThemeElements, 1)
-	end
 	table.insert(ThemeElements, { Object = obj, Prop = prop })
 end
 
@@ -83,179 +64,64 @@ local function ApplyTheme(color, duration)
 	duration = duration or 0.4
 	CurrentTheme = color
 	local info = TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-	local count = #ThemeElements
-	for i, item in ipairs(ThemeElements) do
-		local obj, prop = item.Object, item.Prop
-		if obj and obj.Parent then
-			task.delay((i / count) * 0.06, function()
-				pcall(function()
-					TweenService:Create(obj, info, { [prop] = color }):Play()
-				end)
-			end)
-		end
+	for _, item in ipairs(ThemeElements) do
+		pcall(function()
+			TweenService:Create(item.Object, info, { [item.Prop] = color }):Play()
+		end)
 	end
 end
 
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 -- STATE
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 local State = {
 	AutoDie        = false,
-	AutoDieCooldown = 0,
 	SelectedTarget = nil,
 	IsOpen         = false,
 	IsMinimized    = false,
 	ActiveTab      = "Combat",
 	SearchQuery    = "",
-	Favorites      = {},
-	Keybinds       = {},
-	SpawnCFrame    = nil,
-	AutoSpawn      = false,
-	GodModeUI      = false,
-	AntiAim        = false,
-	SettingsLoaded = false,
+	Favorites      = {},         -- set of button ids
+	Keybinds       = {},         -- id → KeyCode
+	KeybindActions = {},         -- id → function
+	SpawnCFrame    = nil,        -- saved spawn CFrame
+	AutoSpawn      = false,      -- auto-teleport to spawn on respawn
 }
 
--- ═══════════════════════════════════════════════════════════════════
--- PERSISTENCE
--- ═══════════════════════════════════════════════════════════════════
-local function SaveSettings()
-	local ok, data = pcall(function()
-		return HttpService:JSONEncode({
-			theme   = CurrentThemeIndex,
-			favs    = State.Favorites,
-			kbs     = State.Keybinds,
-			spawn   = State.SpawnCFrame and {
-				x = State.SpawnCFrame.X, y = State.SpawnCFrame.Y, z = State.SpawnCFrame.Z,
-				xx = State.SpawnCFrame.XX, xy = State.SpawnCFrame.XY, xz = State.SpawnCFrame.XZ,
-				yx = State.SpawnCFrame.YX, yy = State.SpawnCFrame.YY, yz = State.SpawnCFrame.YZ,
-				zx = State.SpawnCFrame.ZX, zy = State.SpawnCFrame.ZY, zz = State.SpawnCFrame.ZZ,
-			} or nil,
-		})
-	end)
-	if ok then
-		pcall(function()
-			HttpService:PostAsync("http://httpbin.org/post?save=" .. HttpService:UrlEncode(data), "", Enum.HttpContentType.ApplicationJson, false)
-		end)
-	end
+-- ═══════════════════════════════════════════════════════
+-- HELPERS
+-- ═══════════════════════════════════════════════════════
+local function Tween(obj, t, props)
+	TweenService:Create(obj, t, props):Play()
 end
 
-local function LoadSettings()
-	local ok, data = pcall(function()
-		return HttpService:JSONDecode('{}')
-	end)
-end
-
--- ═══════════════════════════════════════════════════════════════════
--- UTILITY FUNCTIONS
--- ═══════════════════════════════════════════════════════════════════
-local Util = {}
-
-function Util.Tween(obj, t, props)
-	if not obj then return end
-	local tw = TweenService:Create(obj, t, props)
-	tw:Play()
-	return tw
-end
-
-function Util.QuartOut(dur)
+local function QuartOut(dur)
 	return TweenInfo.new(dur or 0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 end
 
-function Util.BackOut(dur)
+local function BackOut(dur)
 	return TweenInfo.new(dur or 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 end
 
-function Util.ElasticOut(dur)
-	return TweenInfo.new(dur or 0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out)
-end
-
-function Util.BounceOut(dur)
-	return TweenInfo.new(dur or 0.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out)
-end
-
-function Util.QuintOut(dur)
-	return TweenInfo.new(dur or 0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-end
-
-function Util.MakeCorner(parent, radius)
+local function MakeCorner(parent, radius)
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(0, radius or 14)
 	c.Parent = parent
 	return c
 end
 
-function Util.MakeStroke(parent, thickness, color, transparency)
+local function MakeStroke(parent, thickness, color, transparency)
 	local s = Instance.new("UIStroke")
 	s.Thickness = thickness or 1
-	s.Color = color or Color3.fromRGB(255, 255, 255)
+	s.Color = color or Color3.fromRGB(255,255,255)
 	s.Transparency = transparency or 0.85
 	s.Parent = parent
 	return s
 end
 
-function Util.MakeGlow(parent, size, color, transparency)
-	local glow = Instance.new("ImageLabel")
-	glow.AnchorPoint = Vector2.new(0.5, 0.5)
-	glow.Position = UDim2.fromScale(0.5, 0.5)
-	glow.Size = UDim2.new(1, size or 30, 1, size or 30)
-	glow.BackgroundTransparency = 1
-	glow.Image = "rbxassetid://5028857084"
-	glow.ImageColor3 = color or CurrentTheme
-	glow.ImageTransparency = transparency or 0.5
-	glow.ZIndex = parent.ZIndex - 1
-	glow.Parent = parent
-	RegisterTheme(glow, "ImageColor3")
-	return glow
-end
-
-function Util.SafeGet(obj, prop)
-	local ok, result = pcall(function() return obj[prop] end)
-	if ok then return result end
-	return nil
-end
-
-function Util.EscapeSearch(query)
-	return query:gsub("([%(%)%.%%%+%-%*%?%[%^%$%]])", "%%%1")
-end
-
-function Util.FormatCoords(cf)
-	if not cf then return "—" end
-	local p = cf.Position
-	return string.format("X: %.1f  Y: %.1f  Z: %.1f", p.X, p.Y, p.Z)
-end
-
-function Util.ClampColor3(c)
-	return Color3.new(
-		math.clamp(c.R, 0, 1),
-		math.clamp(c.G, 0, 1),
-		math.clamp(c.B, 0, 1)
-	)
-end
-
-function Util.Debounce(tbl, key, time)
-	time = time or DEBOUNCE
-	if tbl[key] then
-		local last = tbl[key]
-		if tick() - last < time then
-			return true
-		end
-	end
-	tbl[key] = tick()
-	return false
-end
-
--- ═══════════════════════════════════════════════════════════════════
--- RIPPLE EFFECT (Optimized)
--- ═══════════════════════════════════════════════════════════════════
-local DebounceMap = {}
-
+-- Ripple Effect
 local function AddRipple(button)
 	button.MouseButton1Click:Connect(function()
-		if Util.Debounce(DebounceMap, button, 0.2) then return end
-
-		local maxSize = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 2.8
-
 		local ripple = Instance.new("Frame")
 		ripple.Size = UDim2.fromOffset(0, 0)
 		ripple.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -267,84 +133,37 @@ local function AddRipple(button)
 		ripple.Parent = button
 		Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
 
-		Util.Tween(ripple, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		local maxSize = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 2.2
+		Tween(ripple, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			Size = UDim2.fromOffset(maxSize, maxSize),
 			BackgroundTransparency = 1,
 		})
-		task.delay(0.5, function() pcall(function() ripple:Destroy() end) end)
-
-		local burst = Instance.new("Frame")
-		burst.Size = UDim2.fromOffset(0, 0)
-		burst.AnchorPoint = Vector2.new(0.5, 0.5)
-		burst.Position = UDim2.fromScale(0.5, 0.5)
-		burst.BackgroundColor3 = CurrentTheme
-		burst.BackgroundTransparency = 0.5
-		burst.BorderSizePixel = 0
-		burst.ZIndex = button.ZIndex + 4
-		burst.Parent = button
-		Instance.new("UICorner", burst).CornerRadius = UDim.new(1, 0)
-
-		Util.Tween(burst, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			Size = UDim2.fromOffset(maxSize * 0.6, maxSize * 0.6),
-			BackgroundTransparency = 1,
-		})
-		task.delay(0.35, function() pcall(function() burst:Destroy() end) end)
+		task.delay(0.45, function()
+			ripple:Destroy()
+		end)
 	end)
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- HOVER LIFT
--- ═══════════════════════════════════════════════════════════════════
-local function AddHoverLift(card)
-	local default = card.BackgroundTransparency
-	card.MouseEnter:Connect(function()
-		Util.Tween(card, Util.QuartOut(0.22), {
-			BackgroundTransparency = math.max(default - 0.15, 0),
-		})
-	end)
-	card.MouseLeave:Connect(function()
-		Util.Tween(card, Util.QuartOut(0.22), {
-			BackgroundTransparency = default,
-		})
-	end)
-end
-
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 -- SCREEN GUI
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name          = "EliteExecutorPanel"
 ScreenGui.ResetOnSpawn  = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder  = 999
 
-local guiParented = false
-local guiAttempts = 0
-while not guiParented and guiAttempts < 3 do
-	guiAttempts = guiAttempts + 1
-	local ok = pcall(function() ScreenGui.Parent = CoreGui end)
-	if ok and ScreenGui.Parent then
-		guiParented = true
-	else
-		pcall(function() ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui", 5) end)
-		if ScreenGui.Parent then guiParented = true end
-	end
-	if not guiParented and guiAttempts < 3 then
-		task.wait(1)
-	end
+pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
+if not ScreenGui.Parent then
+	ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
-if not guiParented then
-	warn("[ElitePanel] Failed to parent ScreenGui")
-	return
-end
-
--- ═══════════════════════════════════════════════════════════════════
--- NOTIFICATION SYSTEM (Enhanced with Queue)
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- NOTIFICATION SYSTEM
+-- ═══════════════════════════════════════════════════════
 local NotifContainer = Instance.new("Frame")
-NotifContainer.Size = UDim2.fromOffset(340, 0)
-NotifContainer.Position = UDim2.new(1, -360, 1, -20)
+NotifContainer.Size = UDim2.fromOffset(300, 0)
+NotifContainer.Position = UDim2.new(1, -320, 1, -20)
 NotifContainer.AnchorPoint = Vector2.new(0, 1)
 NotifContainer.BackgroundTransparency = 1
 NotifContainer.Parent = ScreenGui
@@ -352,77 +171,58 @@ NotifContainer.Parent = ScreenGui
 local NotifLayout = Instance.new("UIListLayout")
 NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
 NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-NotifLayout.Padding = UDim.new(0, 10)
+NotifLayout.Padding = UDim.new(0, 8)
 NotifLayout.Parent = NotifContainer
 
 local notifCount = 0
-local notifQueue = {}
-local notifBusy = false
 
-local function ProcessNotifQueue()
-	if notifBusy then return end
-	if #notifQueue == 0 then return end
-	notifBusy = true
-
-	local entry = table.remove(notifQueue, 1)
-	local title, message, duration, icon = entry.title, entry.message, entry.duration, entry.icon
+local function Notify(title, message, duration, icon)
+	duration = duration or 3.5
+	icon = icon or "💬"
 	notifCount = notifCount + 1
 
 	local card = Instance.new("Frame")
 	card.Name = "Notif_" .. notifCount
-	card.Size = UDim2.fromOffset(340, 78)
+	card.Size = UDim2.fromOffset(300, 70)
 	card.BackgroundColor3 = Color3.fromHex("#0E0E14")
 	card.BackgroundTransparency = 0.05
-	card.Position = UDim2.fromOffset(60, 0)
+	card.Position = UDim2.fromOffset(40, 0)
 	card.LayoutOrder = -notifCount
 	card.Parent = NotifContainer
-	Util.MakeCorner(card, 16)
-	local stroke = Util.MakeStroke(card, 1.2, CurrentTheme, 0.4)
-	RegisterTheme(stroke, "Color")
-
-	local glassOverlay = Instance.new("Frame")
-	glassOverlay.Size = UDim2.fromScale(1, 1)
-	glassOverlay.BackgroundColor3 = Color3.fromHex("#FFFFFF")
-	glassOverlay.BackgroundTransparency = 0.96
-	glassOverlay.BorderSizePixel = 0
-	glassOverlay.ZIndex = card.ZIndex + 1
-	glassOverlay.Parent = card
-	Util.MakeCorner(glassOverlay, 16)
-
-	Util.MakeGlow(card, 40, CurrentTheme, 0.65)
+	MakeCorner(card, 14)
+	MakeStroke(card, 1.2, CurrentTheme, 0.4)
 
 	local accent = Instance.new("Frame")
 	accent.Size = UDim2.new(0, 3, 1, -16)
 	accent.Position = UDim2.fromOffset(8, 8)
 	accent.BackgroundColor3 = CurrentTheme
 	accent.Parent = card
-	Util.MakeCorner(accent, 2)
-	RegisterTheme(accent, "BackgroundColor3")
+	MakeCorner(accent, 2)
 
 	local ico = Instance.new("TextLabel")
-	ico.Size = UDim2.fromOffset(32, 32)
-	ico.Position = UDim2.fromOffset(22, 10)
+	ico.Size = UDim2.fromOffset(28, 28)
+	ico.Position = UDim2.fromOffset(20, 10)
 	ico.BackgroundTransparency = 1
 	ico.Text = icon
-	ico.TextSize = 20
+	ico.TextSize = 18
 	ico.Font = Enum.Font.GothamBold
-	ico.TextColor3 = Color3.fromRGB(255, 255, 255)
+	ico.TextColor3 = Color3.fromRGB(255,255,255)
 	ico.Parent = card
 
 	local tl = Instance.new("TextLabel")
-	tl.Size = UDim2.new(1, -70, 0, 22)
-	tl.Position = UDim2.fromOffset(58, 8)
+	tl.Size = UDim2.new(1, -60, 0, 22)
+	tl.Position = UDim2.fromOffset(52, 8)
 	tl.BackgroundTransparency = 1
 	tl.Text = title
 	tl.TextColor3 = Color3.fromRGB(240, 240, 255)
 	tl.Font = Enum.Font.GothamBold
-	tl.TextSize = 14
+	tl.TextSize = 13
 	tl.TextXAlignment = Enum.TextXAlignment.Left
 	tl.Parent = card
 
 	local ml = Instance.new("TextLabel")
-	ml.Size = UDim2.new(1, -70, 0, 36)
-	ml.Position = UDim2.fromOffset(58, 32)
+	ml.Size = UDim2.new(1, -60, 0, 32)
+	ml.Position = UDim2.fromOffset(52, 30)
 	ml.BackgroundTransparency = 1
 	ml.Text = message
 	ml.TextColor3 = Color3.fromRGB(160, 160, 180)
@@ -432,40 +232,28 @@ local function ProcessNotifQueue()
 	ml.TextWrapped = true
 	ml.Parent = card
 
-	Util.Tween(card, Util.BackOut(0.5), { Position = UDim2.fromOffset(0, 0) })
+	-- Slide in
+	Tween(card, QuartOut(0.4), { Position = UDim2.fromOffset(0, 0) })
 
+	-- Progress bar
 	local bar = Instance.new("Frame")
 	bar.Size = UDim2.new(1, 0, 0, 2)
 	bar.Position = UDim2.new(0, 0, 1, -2)
 	bar.BackgroundColor3 = CurrentTheme
 	bar.BorderSizePixel = 0
 	bar.Parent = card
-	RegisterTheme(bar, "BackgroundColor3")
 
-	Util.Tween(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 0, 2) })
+	Tween(bar, TweenInfo.new(duration, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 0, 2) })
 
 	task.delay(duration, function()
-		Util.Tween(card, Util.QuartOut(0.35), { Position = UDim2.fromOffset(380, 0), BackgroundTransparency = 1 })
-		task.delay(0.4, function()
-			pcall(function() card:Destroy() end)
-			notifBusy = false
-			ProcessNotifQueue()
-		end)
+		Tween(card, QuartOut(0.35), { Position = UDim2.fromOffset(320, 0), BackgroundTransparency = 1 })
+		task.delay(0.4, function() card:Destroy() end)
 	end)
 end
 
-local function Notify(title, message, duration, icon)
-	duration = duration or 3.5
-	icon = icon or "💬"
-	table.insert(notifQueue, { title = title, message = message, duration = duration, icon = icon })
-	if not notifBusy then
-		ProcessNotifQueue()
-	end
-end
-
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 -- FLOATING ORB (Open Button)
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 local OrbFrame = Instance.new("Frame")
 OrbFrame.Name = "OrbFrame"
 OrbFrame.Size = UDim2.fromOffset(64, 64)
@@ -473,45 +261,25 @@ OrbFrame.Position = UDim2.new(0, 20, 0.5, -32)
 OrbFrame.BackgroundTransparency = 1
 OrbFrame.Parent = ScreenGui
 
-local OrbGlowOuter = Instance.new("ImageLabel")
-OrbGlowOuter.AnchorPoint = Vector2.new(0.5, 0.5)
-OrbGlowOuter.Position = UDim2.fromScale(0.5, 0.5)
-OrbGlowOuter.Size = UDim2.new(1, 80, 1, 80)
-OrbGlowOuter.BackgroundTransparency = 1
-OrbGlowOuter.Image = "rbxassetid://5028857084"
-OrbGlowOuter.ImageColor3 = CurrentTheme
-OrbGlowOuter.ImageTransparency = 0.78
-OrbGlowOuter.ZIndex = 0
-OrbGlowOuter.Parent = OrbFrame
-RegisterTheme(OrbGlowOuter, "ImageColor3")
+-- Glow behind orb
+local OrbGlow = Instance.new("ImageLabel")
+OrbGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+OrbGlow.Position = UDim2.fromScale(0.5, 0.5)
+OrbGlow.Size = UDim2.new(1, 40, 1, 40)
+OrbGlow.BackgroundTransparency = 1
+OrbGlow.Image = "rbxassetid://5028857084"
+OrbGlow.ImageColor3 = CurrentTheme
+OrbGlow.ImageTransparency = 0.6
+OrbGlow.ZIndex = 0
+OrbGlow.Parent = OrbFrame
+RegisterTheme(OrbGlow, "ImageColor3")
 
-local OrbGlowInner = Instance.new("ImageLabel")
-OrbGlowInner.AnchorPoint = Vector2.new(0.5, 0.5)
-OrbGlowInner.Position = UDim2.fromScale(0.5, 0.5)
-OrbGlowInner.Size = UDim2.new(1, 50, 1, 50)
-OrbGlowInner.BackgroundTransparency = 1
-OrbGlowInner.Image = "rbxassetid://5028857084"
-OrbGlowInner.ImageColor3 = CurrentTheme
-OrbGlowInner.ImageTransparency = 0.55
-OrbGlowInner.ZIndex = 0
-OrbGlowInner.Parent = OrbFrame
-RegisterTheme(OrbGlowInner, "ImageColor3")
-
-local floatTweenRef = nil
-local floatOffset = 0
-local function StartFloat()
-	floatOffset = math.random(-5, 5)
-	local info = TweenInfo.new(2.5 + math.random() * 0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-	floatTweenRef = TweenService:Create(OrbFrame, info, {
-		Position = UDim2.new(0, 20, 0.5, -32 + floatOffset),
-	})
-	floatTweenRef:Play()
+-- Pulse animation
+local function PulseOrb()
+	local pulseInfo = TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+	Tween(OrbGlow, pulseInfo, { ImageTransparency = 0.85 })
 end
-StartFloat()
-
-local OrbPulseInfo = TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-Util.Tween(OrbGlowInner, OrbPulseInfo, { ImageTransparency = 0.7 })
-Util.Tween(OrbGlowOuter, OrbPulseInfo, { ImageTransparency = 0.85 })
+PulseOrb()
 
 local OpenButton = Instance.new("TextButton")
 OpenButton.Name = "OpenBtn"
@@ -525,29 +293,25 @@ OpenButton.TextSize = 26
 OpenButton.AutoButtonColor = false
 OpenButton.ZIndex = 1
 OpenButton.Parent = OrbFrame
-Util.MakeCorner(OpenButton, 32)
+MakeCorner(OpenButton, 32)
 
-local OpenStroke = Util.MakeStroke(OpenButton, 2, CurrentTheme, 0.2)
+local OpenStroke = MakeStroke(OpenButton, 2, CurrentTheme, 0.2)
 RegisterTheme(OpenStroke, "Color")
 RegisterTheme(OpenButton, "TextColor3")
 
 OpenButton.MouseEnter:Connect(function()
-	Util.Tween(OrbFrame, Util.BackOut(0.25), { Size = UDim2.fromOffset(74, 74) })
-	Util.Tween(OrbGlowInner, Util.QuartOut(0.2), { ImageTransparency = 0.35 })
-	Util.Tween(OrbGlowOuter, Util.QuartOut(0.2), { ImageTransparency = 0.55 })
-	if floatTweenRef then floatTweenRef:Cancel() end
+	Tween(OrbFrame, BackOut(0.25), { Size = UDim2.fromOffset(70, 70) })
+	Tween(OrbGlow, QuartOut(0.2), { ImageTransparency = 0.35 })
 end)
 OpenButton.MouseLeave:Connect(function()
-	Util.Tween(OrbFrame, Util.QuartOut(0.25), { Size = UDim2.fromOffset(64, 64) })
-	Util.Tween(OrbGlowInner, Util.QuartOut(0.2), { ImageTransparency = 0.55 })
-	Util.Tween(OrbGlowOuter, Util.QuartOut(0.2), { ImageTransparency = 0.78 })
-	task.delay(0.3, StartFloat)
+	Tween(OrbFrame, QuartOut(0.25), { Size = UDim2.fromOffset(64, 64) })
+	Tween(OrbGlow, QuartOut(0.2), { ImageTransparency = 0.6 })
 end)
 AddRipple(OpenButton)
 
--- ═══════════════════════════════════════════════════════════════════
--- MAIN FRAME (Glassmorphism)
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- MAIN FRAME
+-- ═══════════════════════════════════════════════════════
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "EliteMain"
 MainFrame.Size = UDim2.fromOffset(0, 0)
@@ -560,45 +324,26 @@ MainFrame.ClipsDescendants = true
 MainFrame.Visible = false
 MainFrame.ZIndex = 2
 MainFrame.Parent = ScreenGui
-Util.MakeCorner(MainFrame, 22)
+MakeCorner(MainFrame, 22)
 
-local MainStroke = Util.MakeStroke(MainFrame, 1.5, CurrentTheme, 0.45)
+local MainStroke = MakeStroke(MainFrame, 1.5, CurrentTheme, 0.45)
 RegisterTheme(MainStroke, "Color")
 
-local GlassLayer = Instance.new("Frame")
-GlassLayer.Size = UDim2.fromScale(1, 1)
-GlassLayer.BackgroundColor3 = Color3.fromHex("#FFFFFF")
-GlassLayer.BackgroundTransparency = 0.97
-GlassLayer.BorderSizePixel = 0
-GlassLayer.ZIndex = MainFrame.ZIndex + 1
-GlassLayer.Parent = MainFrame
-Util.MakeCorner(GlassLayer, 22)
+-- Drop shadow
+local MainShadow = Instance.new("ImageLabel")
+MainShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+MainShadow.Position = UDim2.fromScale(0.5, 0.5)
+MainShadow.Size = UDim2.new(1, 60, 1, 60)
+MainShadow.BackgroundTransparency = 1
+MainShadow.Image = "rbxassetid://6015897843"
+MainShadow.ImageColor3 = Color3.new(0, 0, 0)
+MainShadow.ImageTransparency = 0.25
+MainShadow.ZIndex = MainFrame.ZIndex - 1
+MainShadow.Parent = MainFrame
 
-local ShadowLayer1 = Instance.new("ImageLabel")
-ShadowLayer1.AnchorPoint = Vector2.new(0.5, 0.5)
-ShadowLayer1.Position = UDim2.fromScale(0.5, 0.5)
-ShadowLayer1.Size = UDim2.new(1, 80, 1, 80)
-ShadowLayer1.BackgroundTransparency = 1
-ShadowLayer1.Image = "rbxassetid://6015897843"
-ShadowLayer1.ImageColor3 = Color3.new(0, 0, 0)
-ShadowLayer1.ImageTransparency = 0.15
-ShadowLayer1.ZIndex = MainFrame.ZIndex - 1
-ShadowLayer1.Parent = MainFrame
-
-local ShadowLayer2 = Instance.new("ImageLabel")
-ShadowLayer2.AnchorPoint = Vector2.new(0.5, 0.5)
-ShadowLayer2.Position = UDim2.fromScale(0.5, 0.5)
-ShadowLayer2.Size = UDim2.new(1, 140, 1, 140)
-ShadowLayer2.BackgroundTransparency = 1
-ShadowLayer2.Image = "rbxassetid://6015897843"
-ShadowLayer2.ImageColor3 = Color3.new(0, 0, 0)
-ShadowLayer2.ImageTransparency = 0.35
-ShadowLayer2.ZIndex = MainFrame.ZIndex - 1
-ShadowLayer2.Parent = MainFrame
-
--- ═══════════════════════════════════════════════════════════════════
--- PARTICLE SYSTEM (Optimized)
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- PARTICLE BACKGROUND CANVAS
+-- ═══════════════════════════════════════════════════════
 local ParticleCanvas = Instance.new("Frame")
 ParticleCanvas.Size = UDim2.fromScale(1, 1)
 ParticleCanvas.BackgroundTransparency = 1
@@ -606,225 +351,222 @@ ParticleCanvas.ClipsDescendants = true
 ParticleCanvas.ZIndex = 1
 ParticleCanvas.Parent = MainFrame
 
-local Particles = {}
-local PARTICLE_COUNT = 28
-local PARTICLE_POOL = {}
+local particleData = {}
+local PARTICLE_COUNT = 18
 
-local function GetPooledParticle()
-	local p = table.remove(PARTICLE_POOL)
-	if p then
-		p.Position = UDim2.fromScale(math.random(), math.random())
-		p.BackgroundTransparency = math.random(50, 85) / 100
-		p.BackgroundColor3 = CurrentTheme
-		p.Visible = true
-		return p
-	end
+local function SpawnParticle()
 	local dot = Instance.new("Frame")
-	dot.Size = UDim2.fromOffset(math.random(2, 6), math.random(2, 6))
+	dot.Size = UDim2.fromOffset(math.random(2, 5), math.random(2, 5))
+	dot.Position = UDim2.fromScale(math.random(), math.random())
 	dot.AnchorPoint = Vector2.new(0.5, 0.5)
 	dot.BackgroundColor3 = CurrentTheme
-	dot.BackgroundTransparency = math.random(50, 85) / 100
+	dot.BackgroundTransparency = math.random(60, 88) / 100
 	dot.BorderSizePixel = 0
 	dot.ZIndex = 1
 	dot.Parent = ParticleCanvas
 	Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
 	RegisterTheme(dot, "BackgroundColor3")
+
+	local speed = math.random(12, 30)
+	local dirX  = (math.random() - 0.5) * 0.003
+	local dirY  = -math.random() * 0.0015 - 0.0005
+
+	table.insert(particleData, { dot = dot, dx = dirX, dy = dirY, life = 0, max = speed })
 	return dot
-end
-
-local function ReturnPooledParticle(dot)
-	dot.Visible = false
-	table.insert(PARTICLE_POOL, dot)
-end
-
-local function SpawnParticle()
-	local dot = GetPooledParticle()
-	local speed = math.random(15, 35)
-	local entry = {
-		dot = dot,
-		dx = (math.random() - 0.5) * 0.004,
-		dy = -math.random() * 0.002 - 0.0005,
-		wobble = (math.random() - 0.5) * 0.002,
-		wobbleSpeed = math.random(1, 3),
-		life = 0,
-		max = speed,
-	}
-	table.insert(Particles, entry)
-	return entry
 end
 
 for _ = 1, PARTICLE_COUNT do
 	SpawnParticle()
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- HEADER
--- ═══════════════════════════════════════════════════════════════════
+RunService.Heartbeat:Connect(function(dt)
+	for i = #particleData, 1, -1 do
+		local p = particleData[i]
+		p.life = p.life + dt
+		if p.life > p.max then
+			p.dot:Destroy()
+			table.remove(particleData, i)
+			SpawnParticle()
+		else
+			local t = p.life / p.max
+			p.dot.Position = UDim2.new(
+				p.dot.Position.X.Scale + p.dx,
+				0,
+				p.dot.Position.Y.Scale + p.dy,
+				0
+			)
+			p.dot.BackgroundTransparency = 0.6 + t * 0.35
+		end
+	end
+end)
+
+-- ═══════════════════════════════════════════════════════
+-- HEADER (Animated Gradient + Drag + FPS/Ping)
+-- ═══════════════════════════════════════════════════════
 local Header = Instance.new("Frame")
 Header.Name = "Header"
-Header.Size = UDim2.new(1, 0, 0, 68)
+Header.Size = UDim2.new(1, 0, 0, 64)
 Header.BackgroundColor3 = Color3.fromHex("#0A0A14")
 Header.BackgroundTransparency = 0.2
 Header.BorderSizePixel = 0
 Header.ZIndex = 5
 Header.Parent = MainFrame
 
-local HeaderGlass = Instance.new("Frame")
-HeaderGlass.Size = UDim2.fromScale(1, 1)
-HeaderGlass.BackgroundColor3 = Color3.fromHex("#FFFFFF")
-HeaderGlass.BackgroundTransparency = 0.975
-HeaderGlass.BorderSizePixel = 0
-HeaderGlass.ZIndex = Header.ZIndex + 1
-HeaderGlass.Parent = Header
-Util.MakeCorner(HeaderGlass, 22)
-HeaderGlass.Position = UDim2.fromOffset(0, 0)
-
+-- Gradient line at bottom of header
 local HeaderLine = Instance.new("Frame")
-HeaderLine.Size = UDim2.new(1, 0, 0, 1.5)
-HeaderLine.Position = UDim2.new(0, 0, 1, -1.5)
+HeaderLine.Size = UDim2.new(1, 0, 0, 1)
+HeaderLine.Position = UDim2.new(0, 0, 1, -1)
 HeaderLine.BackgroundColor3 = CurrentTheme
-HeaderLine.BackgroundTransparency = 0.4
+HeaderLine.BackgroundTransparency = 0.5
 HeaderLine.BorderSizePixel = 0
 HeaderLine.ZIndex = 6
 HeaderLine.Parent = Header
 RegisterTheme(HeaderLine, "BackgroundColor3")
 
-local HeaderGrad = Instance.new("UIGradient")
-HeaderGrad.Color = ColorSequence.new({
+-- Animated gradient background in header
+local GradientLabel = Instance.new("Frame")
+GradientLabel.Size = UDim2.fromScale(1, 1)
+GradientLabel.BackgroundColor3 = Color3.new(0,0,0)
+GradientLabel.BackgroundTransparency = 1
+GradientLabel.ZIndex = 2
+GradientLabel.Parent = Header
+
+local UIGrad = Instance.new("UIGradient")
+UIGrad.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromHex("#0A0A1A")),
 	ColorSequenceKeypoint.new(0.5, Color3.fromHex("#101018")),
 	ColorSequenceKeypoint.new(1, Color3.fromHex("#0A0A1A")),
 })
-HeaderGrad.Rotation = 0
-HeaderGrad.Parent = Header
+UIGrad.Rotation = 0
+UIGrad.Parent = Header
 
-local CrownIcon = Instance.new("TextLabel")
-CrownIcon.Size = UDim2.fromOffset(38, 38)
-CrownIcon.Position = UDim2.fromOffset(18, 15)
-CrownIcon.BackgroundTransparency = 1
-CrownIcon.Text = "👑"
-CrownIcon.TextSize = 24
-CrownIcon.Font = Enum.Font.GothamBold
-CrownIcon.ZIndex = 6
-CrownIcon.Parent = Header
+-- Animate gradient rotation
+local gradAngle = 0
+RunService.Heartbeat:Connect(function(dt)
+	gradAngle = (gradAngle + dt * 12) % 360
+	UIGrad.Rotation = gradAngle
+end)
 
-local TitleText = Instance.new("TextLabel")
-TitleText.Size = UDim2.fromOffset(210, 26)
-TitleText.Position = UDim2.fromOffset(60, 12)
-TitleText.BackgroundTransparency = 1
-TitleText.Text = "ELITE EXECUTOR"
-TitleText.TextColor3 = Color3.fromRGB(248, 248, 255)
-TitleText.Font = Enum.Font.GothamBold
-TitleText.TextSize = 17
-TitleText.TextXAlignment = Enum.TextXAlignment.Left
-TitleText.ZIndex = 6
-TitleText.Parent = Header
+-- Crown + Title
+local Crown = Instance.new("TextLabel")
+Crown.Size = UDim2.fromOffset(36, 36)
+Crown.Position = UDim2.fromOffset(18, 14)
+Crown.BackgroundTransparency = 1
+Crown.Text = "👑"
+Crown.TextSize = 22
+Crown.Font = Enum.Font.GothamBold
+Crown.ZIndex = 6
+Crown.Parent = Header
 
-local TitleGlow = Instance.new("TextLabel")
-TitleGlow.Size = TitleText.Size
-TitleGlow.Position = TitleText.Position
-TitleGlow.BackgroundTransparency = 1
-TitleGlow.Text = TitleText.Text
-TitleGlow.TextColor3 = CurrentTheme
-TitleGlow.Font = Enum.Font.GothamBold
-TitleGlow.TextSize = 17
-TitleGlow.TextXAlignment = Enum.TextXAlignment.Left
-TitleGlow.ZIndex = 5
-TitleGlow.Parent = Header
-TitleGlow.TextTransparency = 0.85
-RegisterTheme(TitleGlow, "TextColor3")
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.fromOffset(200, 24)
+TitleLabel.Position = UDim2.fromOffset(56, 12)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "ELITE EXECUTOR"
+TitleLabel.TextColor3 = Color3.fromRGB(248, 248, 255)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 16
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.ZIndex = 6
+TitleLabel.Parent = Header
 
-local VersionLabel = Instance.new("TextLabel")
-VersionLabel.Size = UDim2.fromOffset(200, 18)
-VersionLabel.Position = UDim2.fromOffset(60, 36)
-VersionLabel.BackgroundTransparency = 1
-VersionLabel.Text = "PANEL  v" .. VERSION
-VersionLabel.TextColor3 = CurrentTheme
-VersionLabel.Font = Enum.Font.Gotham
-VersionLabel.TextSize = 10
-VersionLabel.TextXAlignment = Enum.TextXAlignment.Left
-VersionLabel.ZIndex = 6
-VersionLabel.Parent = Header
-RegisterTheme(VersionLabel, "TextColor3")
+local SubLabel = Instance.new("TextLabel")
+SubLabel.Size = UDim2.fromOffset(200, 18)
+SubLabel.Position = UDim2.fromOffset(56, 34)
+SubLabel.BackgroundTransparency = 1
+SubLabel.Text = "PANEL  v2.0"
+SubLabel.TextColor3 = CurrentTheme
+SubLabel.Font = Enum.Font.Gotham
+SubLabel.TextSize = 10
+SubLabel.TextXAlignment = Enum.TextXAlignment.Left
+SubLabel.ZIndex = 6
+SubLabel.Parent = Header
+RegisterTheme(SubLabel, "TextColor3")
 
--- HUD Frame
+-- FPS / Ping HUD
 local HudFrame = Instance.new("Frame")
-HudFrame.Size = UDim2.fromOffset(140, 40)
-HudFrame.Position = UDim2.new(0.5, -70, 0.5, -20)
+HudFrame.Size = UDim2.fromOffset(130, 36)
+HudFrame.Position = UDim2.new(0.5, -65, 0.5, -18)
 HudFrame.BackgroundColor3 = Color3.fromHex("#101018")
-HudFrame.BackgroundTransparency = 0.25
+HudFrame.BackgroundTransparency = 0.3
 HudFrame.ZIndex = 6
 HudFrame.Parent = Header
-Util.MakeCorner(HudFrame, 12)
-local HudStroke = Util.MakeStroke(HudFrame, 1, CurrentTheme, 0.65)
-RegisterTheme(HudStroke, "Color")
+MakeCorner(HudFrame, 10)
 
-local FpsDisplay = Instance.new("TextLabel")
-FpsDisplay.Size = UDim2.fromScale(0.5, 1)
-FpsDisplay.BackgroundTransparency = 1
-FpsDisplay.Text = "FPS\n--"
-FpsDisplay.TextColor3 = Color3.fromRGB(200, 200, 215)
-FpsDisplay.Font = Enum.Font.GothamBold
-FpsDisplay.TextSize = 11
-FpsDisplay.ZIndex = 6
-FpsDisplay.Parent = HudFrame
+local FpsLabel = Instance.new("TextLabel")
+FpsLabel.Size = UDim2.fromScale(0.5, 1)
+FpsLabel.BackgroundTransparency = 1
+FpsLabel.Text = "FPS\n--"
+FpsLabel.TextColor3 = Color3.fromRGB(200, 200, 215)
+FpsLabel.Font = Enum.Font.GothamBold
+FpsLabel.TextSize = 11
+FpsLabel.ZIndex = 6
+FpsLabel.Parent = HudFrame
 
-local PingDisplay = Instance.new("TextLabel")
-PingDisplay.Size = UDim2.fromScale(0.5, 1)
-PingDisplay.Position = UDim2.fromScale(0.5, 0)
-PingDisplay.BackgroundTransparency = 1
-PingDisplay.Text = "PING\n--"
-PingDisplay.TextColor3 = Color3.fromRGB(200, 200, 215)
-PingDisplay.Font = Enum.Font.GothamBold
-PingDisplay.TextSize = 11
-PingDisplay.ZIndex = 6
-PingDisplay.Parent = HudFrame
+local PingLabel = Instance.new("TextLabel")
+PingLabel.Size = UDim2.fromScale(0.5, 1)
+PingLabel.Position = UDim2.fromScale(0.5, 0)
+PingLabel.BackgroundTransparency = 1
+PingLabel.Text = "PING\n--"
+PingLabel.TextColor3 = Color3.fromRGB(200, 200, 215)
+PingLabel.Font = Enum.Font.GothamBold
+PingLabel.TextSize = 11
+PingLabel.ZIndex = 6
+PingLabel.Parent = HudFrame
 
--- Window Buttons
-local function MakeWinBtn(icon, xOffset, hoverColor)
+-- FPS/Ping update loop
+local fpsFrames = 0
+local fpsClock  = 0
+RunService.Heartbeat:Connect(function(dt)
+	fpsFrames = fpsFrames + 1
+	fpsClock  = fpsClock + dt
+	if fpsClock >= 0.5 then
+		local fps = math.round(fpsFrames / fpsClock)
+		fpsFrames = 0
+		fpsClock  = 0
+		local ping = math.round(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+		FpsLabel.Text  = "FPS\n" .. fps
+		PingLabel.Text = "PING\n" .. ping .. "ms"
+		FpsLabel.TextColor3  = fps < 30 and Color3.fromHex("#F87171") or (fps < 55 and Color3.fromHex("#F0C14B") or Color3.fromHex("#34D399"))
+		PingLabel.TextColor3 = ping > 200 and Color3.fromHex("#F87171") or (ping > 100 and Color3.fromHex("#F0C14B") or Color3.fromHex("#34D399"))
+	end
+end)
+
+-- Window Buttons (Close, Minimize)
+local function MakeWinBtn(icon, x, hoverColor)
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.fromOffset(32, 32)
-	btn.Position = UDim2.new(1, xOffset, 0.5, -16)
+	btn.Size = UDim2.fromOffset(30, 30)
+	btn.Position = UDim2.new(1, x, 0.5, -15)
 	btn.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
 	btn.BackgroundTransparency = 0.4
 	btn.Text = icon
 	btn.TextColor3 = Color3.fromRGB(180, 180, 200)
 	btn.Font = Enum.Font.GothamBold
-	btn.TextSize = 14
+	btn.TextSize = 13
 	btn.AutoButtonColor = false
 	btn.ZIndex = 10
 	btn.Parent = Header
-	Util.MakeCorner(btn, 10)
+	MakeCorner(btn, 8)
 
 	btn.MouseEnter:Connect(function()
-		Util.Tween(btn, Util.BackOut(0.2), {
-			BackgroundColor3 = hoverColor or Color3.fromRGB(60, 60, 80),
-			BackgroundTransparency = 0,
-			TextColor3 = Color3.fromRGB(255, 255, 255),
-			Size = UDim2.fromOffset(34, 34),
-		})
+		Tween(btn, QuartOut(0.18), { BackgroundColor3 = hoverColor or Color3.fromRGB(60,60,80), BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(255,255,255) })
 	end)
 	btn.MouseLeave:Connect(function()
-		Util.Tween(btn, Util.QuartOut(0.18), {
-			BackgroundColor3 = Color3.fromRGB(28, 28, 38),
-			BackgroundTransparency = 0.4,
-			TextColor3 = Color3.fromRGB(180, 180, 200),
-			Size = UDim2.fromOffset(32, 32),
-		})
+		Tween(btn, QuartOut(0.18), { BackgroundColor3 = Color3.fromRGB(28,28,38), BackgroundTransparency = 0.4, TextColor3 = Color3.fromRGB(180,180,200) })
 	end)
 	AddRipple(btn)
 	return btn
 end
 
-local CloseButton = MakeWinBtn("✕", -50, Color3.fromHex("#F87171"))
-local MinButton   = MakeWinBtn("─", -92, Color3.fromHex("#F0C14B"))
+local CloseBtn = MakeWinBtn("✕", -48, Color3.fromHex("#F87171"))
+local MinBtn   = MakeWinBtn("─", -88, Color3.fromHex("#F0C14B"))
 
--- ═══════════════════════════════════════════════════════════════════
--- SEARCH BAR
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- SEARCH BAR (in header, right side)
+-- ═══════════════════════════════════════════════════════
 local SearchBox = Instance.new("TextBox")
-SearchBox.Size = UDim2.fromOffset(170, 32)
-SearchBox.Position = UDim2.new(1, -268, 0.5, -16)
+SearchBox.Size = UDim2.fromOffset(160, 30)
+SearchBox.Position = UDim2.new(1, -260, 0.5, -15)
 SearchBox.BackgroundColor3 = Color3.fromHex("#12121C")
 SearchBox.BackgroundTransparency = 0.2
 SearchBox.Text = ""
@@ -836,162 +578,133 @@ SearchBox.TextSize = 12
 SearchBox.ClearTextOnFocus = false
 SearchBox.ZIndex = 10
 SearchBox.Parent = Header
-Util.MakeCorner(SearchBox, 10)
-
-local SearchStroke = Util.MakeStroke(SearchBox, 1.2, CurrentTheme, 0.65)
-RegisterTheme(SearchStroke, "Color")
-
-SearchBox.Focused:Connect(function()
-	Util.Tween(SearchStroke, Util.QuartOut(0.25), { Transparency = 0.3 })
-	Util.Tween(SearchBox, Util.QuartOut(0.25), { BackgroundTransparency = 0.05 })
-end)
-SearchBox.FocusLost:Connect(function()
-	Util.Tween(SearchStroke, Util.QuartOut(0.25), { Transparency = 0.65 })
-	Util.Tween(SearchBox, Util.QuartOut(0.25), { BackgroundTransparency = 0.2 })
-end)
+MakeCorner(SearchBox, 10)
+MakeStroke(SearchBox, 1, CurrentTheme, 0.6)
 
 local SearchPad = Instance.new("UIPadding")
-SearchPad.PaddingLeft = UDim.new(0, 12)
+SearchPad.PaddingLeft = UDim.new(0, 10)
 SearchPad.Parent = SearchBox
 
--- Searchable registry
-local SearchableItems = {}
-local function RegisterSearchable(id, obj, titleText)
-	table.insert(SearchableItems, { id = id, obj = obj, title = titleText })
+local AllButtons = {} -- { id, card, titleText } for search
+local function RegisterSearchable(id, card, titleText)
+	table.insert(AllButtons, { id = id, card = card, title = titleText })
 end
 
 SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local raw = SearchBox.Text
-	local q = raw:lower()
+	local q = SearchBox.Text:lower()
 	State.SearchQuery = q
-	local escaped = Util.EscapeSearch(q)
-	for _, item in ipairs(SearchableItems) do
-		if item.obj and item.obj.Parent then
-			if q == "" then
-				item.obj.Visible = true
-			else
-				local found = item.title:lower():find(escaped, 1, true)
-				item.obj.Visible = found ~= nil
-			end
+	for _, item in ipairs(AllButtons) do
+		if q == "" then
+			item.card.Visible = true
+		else
+			item.card.Visible = item.title:lower():find(q, 1, true) ~= nil
 		end
 	end
 end)
 
--- ═══════════════════════════════════════════════════════════════════
--- DRAG LOGIC
--- ═══════════════════════════════════════════════════════════════════
-local isDragging = false
-local dragOrigin, panelOrigin
+-- ═══════════════════════════════════════════════════════
+-- DRAG LOGIC (Header drag zone)
+-- ═══════════════════════════════════════════════════════
+local dragging = false
+local dragStart, startPos
 
 Header.InputBegan:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		isDragging = true
-		dragOrigin = input.Position
-		panelOrigin = MainFrame.Position
+		dragging   = true
+		dragStart  = input.Position
+		startPos   = MainFrame.Position
 	end
 end)
 Header.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		isDragging = false
+		dragging = false
 	end
 end)
 UserInputService.InputChanged:Connect(function(input)
-	if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-		local delta = input.Position - dragOrigin
+	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
 		MainFrame.Position = UDim2.new(
-			panelOrigin.X.Scale,
-			panelOrigin.X.Offset + delta.X,
-			panelOrigin.Y.Scale,
-			panelOrigin.Y.Offset + delta.Y
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
 		)
 	end
 end)
 
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 -- SIDEBAR
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 local Sidebar = Instance.new("Frame")
 Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 76, 1, -68)
-Sidebar.Position = UDim2.fromOffset(0, 68)
+Sidebar.Size = UDim2.new(0, 76, 1, -64)
+Sidebar.Position = UDim2.fromOffset(0, 64)
 Sidebar.BackgroundColor3 = Color3.fromHex("#070710")
 Sidebar.BackgroundTransparency = 0.35
 Sidebar.BorderSizePixel = 0
 Sidebar.ZIndex = 5
 Sidebar.Parent = MainFrame
 
-local SidebarList = Instance.new("UIListLayout")
-SidebarList.SortOrder = Enum.SortOrder.LayoutOrder
-SidebarList.Padding = UDim.new(0, 4)
-SidebarList.Parent = Sidebar
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarLayout.Padding = UDim.new(0, 4)
+SidebarLayout.Parent = Sidebar
 
 local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 16)
-SidebarPad.PaddingBottom = UDim.new(0, 16)
+SidebarPad.PaddingTop = UDim.new(0, 12)
+SidebarPad.PaddingBottom = UDim.new(0, 12)
 SidebarPad.PaddingLeft = UDim.new(0, 8)
 SidebarPad.PaddingRight = UDim.new(0, 8)
 SidebarPad.Parent = Sidebar
 
-local TabIndicator = Instance.new("Frame")
-TabIndicator.Size = UDim2.fromOffset(3, 30)
-TabIndicator.AnchorPoint = Vector2.new(0, 0.5)
-TabIndicator.BackgroundColor3 = CurrentTheme
-TabIndicator.BorderSizePixel = 0
-TabIndicator.ZIndex = 8
-TabIndicator.Parent = Sidebar
-Util.MakeCorner(TabIndicator, 2)
-RegisterTheme(TabIndicator, "BackgroundColor3")
-
-local TabIndicatorGlow = Instance.new("Frame")
-TabIndicatorGlow.Size = UDim2.new(1, 8, 1, 8)
-TabIndicatorGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-TabIndicatorGlow.Position = UDim2.fromScale(0.5, 0.5)
-TabIndicatorGlow.BackgroundColor3 = CurrentTheme
-TabIndicatorGlow.BackgroundTransparency = 0.8
-TabIndicatorGlow.BorderSizePixel = 0
-TabIndicatorGlow.ZIndex = 7
-TabIndicatorGlow.Parent = TabIndicator
-Util.MakeCorner(TabIndicatorGlow, 4)
-RegisterTheme(TabIndicatorGlow, "BackgroundColor3")
+-- Active indicator bar on sidebar
+local SidebarIndicator = Instance.new("Frame")
+SidebarIndicator.Size = UDim2.fromOffset(3, 28)
+SidebarIndicator.AnchorPoint = Vector2.new(0, 0.5)
+SidebarIndicator.BackgroundColor3 = CurrentTheme
+SidebarIndicator.BorderSizePixel = 0
+SidebarIndicator.ZIndex = 8
+SidebarIndicator.Parent = Sidebar
+MakeCorner(SidebarIndicator, 2)
+RegisterTheme(SidebarIndicator, "BackgroundColor3")
 
 local Pages = {}
-local NavButtons = {}
+local SideNav = {}
 
 local function SetActiveTab(name)
 	State.ActiveTab = name
 	for n, page in pairs(Pages) do
 		page.Visible = (n == name)
 	end
-	for n, data in pairs(NavButtons) do
-		local active = (n == name)
-		Util.Tween(data.btn, Util.QuartOut(0.3), {
-			BackgroundColor3 = active and CurrentTheme or Color3.fromRGB(20, 20, 30),
-			BackgroundTransparency = active and 0.1 or 0.65,
-			TextColor3 = active and Color3.fromRGB(15, 15, 20) or Color3.fromRGB(130, 130, 150),
+	for n, data in pairs(SideNav) do
+		local isActive = (n == name)
+		Tween(data.btn, QuartOut(0.25), {
+			BackgroundColor3 = isActive and CurrentTheme or Color3.fromRGB(20, 20, 30),
+			BackgroundTransparency = isActive and 0.1 or 0.65,
+			TextColor3 = isActive and Color3.fromRGB(15,15,20) or Color3.fromRGB(130,130,150),
 		})
-		Util.Tween(data.lbl, Util.QuartOut(0.3), {
-			TextColor3 = active and CurrentTheme or Color3.fromRGB(100, 100, 120),
+		Tween(data.label, QuartOut(0.25), {
+			TextColor3 = isActive and CurrentTheme or Color3.fromRGB(100,100,120),
 		})
-		if active then
-			local yPos = data.btn.AbsolutePosition.Y - Sidebar.AbsolutePosition.Y + 20
-			Util.Tween(TabIndicator, Util.QuartOut(0.4), {
-				Position = UDim2.new(0, 0, 0, yPos),
+		if isActive then
+			Tween(SidebarIndicator, QuartOut(0.3), {
+				Position = UDim2.new(0, 0, 0, data.btn.AbsolutePosition.Y - Sidebar.AbsolutePosition.Y + 20),
 			})
 		end
 	end
 end
 
-local function AddSideTab(name, icon, label, order)
+local function CreateSideTab(name, icon, label, order)
 	local container = Instance.new("Frame")
-	container.Size = UDim2.new(1, 0, 0, 60)
+	container.Size = UDim2.new(1, 0, 0, 56)
 	container.BackgroundTransparency = 1
 	container.LayoutOrder = order
 	container.ZIndex = 6
 	container.Parent = Sidebar
 
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1, 0, 0, 44)
-	btn.Position = UDim2.fromOffset(0, 5)
+	btn.Size = UDim2.new(1, 0, 0, 42)
+	btn.Position = UDim2.fromOffset(0, 4)
 	btn.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 	btn.BackgroundTransparency = 0.65
 	btn.Text = icon
@@ -1001,11 +714,11 @@ local function AddSideTab(name, icon, label, order)
 	btn.AutoButtonColor = false
 	btn.ZIndex = 6
 	btn.Parent = container
-	Util.MakeCorner(btn, 12)
+	MakeCorner(btn, 12)
 
 	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1, 0, 0, 14)
-	lbl.Position = UDim2.new(0, 0, 1, -4)
+	lbl.Size = UDim2.new(1, 0, 0, 12)
+	lbl.Position = UDim2.new(0, 0, 1, -2)
 	lbl.BackgroundTransparency = 1
 	lbl.Text = label
 	lbl.TextColor3 = Color3.fromRGB(100, 100, 120)
@@ -1014,18 +727,16 @@ local function AddSideTab(name, icon, label, order)
 	lbl.ZIndex = 6
 	lbl.Parent = container
 
-	NavButtons[name] = { btn = btn, lbl = lbl, ctn = container }
+	SideNav[name] = { btn = btn, label = lbl, container = container }
 
 	btn.MouseEnter:Connect(function()
 		if State.ActiveTab ~= name then
-			Util.Tween(btn, Util.QuartOut(0.18), { BackgroundTransparency = 0.4, TextColor3 = Color3.fromRGB(200, 200, 220) })
-			Util.Tween(container, Util.QuartOut(0.18), { Size = UDim2.new(1, 0, 0, 62) })
+			Tween(btn, QuartOut(0.18), { BackgroundTransparency = 0.4, TextColor3 = Color3.fromRGB(200,200,220) })
 		end
 	end)
 	btn.MouseLeave:Connect(function()
 		if State.ActiveTab ~= name then
-			Util.Tween(btn, Util.QuartOut(0.18), { BackgroundTransparency = 0.65, TextColor3 = Color3.fromRGB(130, 130, 150) })
-			Util.Tween(container, Util.QuartOut(0.18), { Size = UDim2.new(1, 0, 0, 60) })
+			Tween(btn, QuartOut(0.18), { BackgroundTransparency = 0.65, TextColor3 = Color3.fromRGB(130,130,150) })
 		end
 	end)
 	btn.MouseButton1Click:Connect(function()
@@ -1035,18 +746,18 @@ local function AddSideTab(name, icon, label, order)
 	AddRipple(btn)
 end
 
-AddSideTab("Combat",    "🏠", "COMBAT",   1)
-AddSideTab("Radar",     "⚡", "RADAR",    2)
-AddSideTab("Favorites", "⭐", "FAVS",     3)
-AddSideTab("Keybinds",  "⌨", "KEYS",     4)
-AddSideTab("Themes",    "🎨", "THEMES",   5)
+CreateSideTab("Combat",    "🏠", "COMBAT",   1)
+CreateSideTab("Radar",     "⚡", "RADAR",    2)
+CreateSideTab("Favorites", "⭐", "FAVS",     3)
+CreateSideTab("Keybinds",  "⌨", "KEYS",     4)
+CreateSideTab("Themes",    "🎨", "THEMES",   5)
 
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 -- CONTENT AREA
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
 local ContentArea = Instance.new("Frame")
-ContentArea.Size = UDim2.new(1, -84, 1, -76)
-ContentArea.Position = UDim2.fromOffset(84, 76)
+ContentArea.Size = UDim2.new(1, -84, 1, -72)
+ContentArea.Position = UDim2.fromOffset(84, 72)
 ContentArea.BackgroundTransparency = 1
 ContentArea.ClipsDescendants = true
 ContentArea.ZIndex = 4
@@ -1057,11 +768,11 @@ local function CreatePage(name)
 	page.Size = UDim2.fromScale(1, 1)
 	page.BackgroundTransparency = 1
 	page.BorderSizePixel = 0
-	page.ScrollBarThickness = 4
+	page.ScrollBarThickness = 3
 	page.ScrollBarImageColor3 = CurrentTheme
-	page.ScrollBarImageTransparency = 0.5
+	page.ScrollBarImageTransparency = 0.4
 	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	page.CanvasSize = UDim2.new(0, 0, 0, 0)
+	page.CanvasSize = UDim2.new(0,0,0,0)
 	page.Visible = false
 	page.ZIndex = 4
 	page.Parent = ContentArea
@@ -1069,31 +780,31 @@ local function CreatePage(name)
 
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Padding = UDim.new(0, 16)
+	layout.Padding = UDim.new(0, 14)
 	layout.Parent = page
 
 	local pad = Instance.new("UIPadding")
-	pad.PaddingTop    = UDim.new(0, 16)
+	pad.PaddingTop    = UDim.new(0, 14)
 	pad.PaddingBottom = UDim.new(0, 24)
-	pad.PaddingLeft   = UDim.new(0, 16)
-	pad.PaddingRight  = UDim.new(0, 16)
+	pad.PaddingLeft   = UDim.new(0, 14)
+	pad.PaddingRight  = UDim.new(0, 14)
 	pad.Parent = page
 
 	Pages[name] = page
 	return page
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- SECTION HEADER
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- SECTION HEADER HELPER
+-- ═══════════════════════════════════════════════════════
 local function SectionHeader(page, text, order)
 	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1, 0, 0, 28)
+	lbl.Size = UDim2.new(1, 0, 0, 26)
 	lbl.BackgroundTransparency = 1
 	lbl.Text = text
 	lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 	lbl.Font = Enum.Font.GothamBold
-	lbl.TextSize = 17
+	lbl.TextSize = 16
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.LayoutOrder = order or 0
 	lbl.ZIndex = 4
@@ -1101,42 +812,41 @@ local function SectionHeader(page, text, order)
 	return lbl
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- TOGGLE CARD (Fixed: clone breaks connections)
--- ═══════════════════════════════════════════════════════════════════
-local FavPageRef     -- forward ref
-local FavContentRef  -- forward ref
+-- ═══════════════════════════════════════════════════════
+-- TOGGLE CARD BUILDER
+-- ═══════════════════════════════════════════════════════
+local favoritesPage  -- forward declare
+local FavsContent    -- forward declare
 
 local function CreateToggle(page, id, title, desc, callback, order)
 	local card = Instance.new("Frame")
 	card.Name = id
-	card.Size = UDim2.new(1, 0, 0, 84)
+	card.Size = UDim2.new(1, 0, 0, 80)
 	card.BackgroundColor3 = Color3.fromHex("#111118")
 	card.BackgroundTransparency = 0.35
 	card.LayoutOrder = order or 0
 	card.ZIndex = 4
 	card.Parent = page
-	Util.MakeCorner(card, 16)
-	Util.MakeStroke(card, 1.2, Color3.fromRGB(255, 255, 255), 0.91)
+	MakeCorner(card, 16)
+	MakeStroke(card, 1, Color3.fromRGB(255,255,255), 0.91)
 
-	local cardGlow = Util.MakeGlow(card, 20, CurrentTheme, 0.85)
-	RegisterTheme(cardGlow, "ImageColor3")
-
+	-- Favorite star
 	local starBtn = Instance.new("TextButton")
-	starBtn.Size = UDim2.fromOffset(30, 30)
+	starBtn.Size = UDim2.fromOffset(28, 28)
 	starBtn.Position = UDim2.fromOffset(14, 10)
 	starBtn.BackgroundTransparency = 1
 	starBtn.Text = State.Favorites[id] and "⭐" or "☆"
-	starBtn.TextSize = 18
+	starBtn.TextSize = 16
 	starBtn.Font = Enum.Font.GothamBold
-	starBtn.TextColor3 = State.Favorites[id] and THEMES[1].color or Color3.fromRGB(100, 100, 120)
+	starBtn.TextColor3 = State.Favorites[id] and THEMES[1].color or Color3.fromRGB(100,100,120)
 	starBtn.AutoButtonColor = false
 	starBtn.ZIndex = 6
 	starBtn.Parent = card
 
+	-- Title
 	local titleL = Instance.new("TextLabel")
 	titleL.Size = UDim2.new(1, -110, 0, 24)
-	titleL.Position = UDim2.fromOffset(52, 12)
+	titleL.Position = UDim2.fromOffset(48, 12)
 	titleL.BackgroundTransparency = 1
 	titleL.Text = title
 	titleL.TextColor3 = Color3.fromRGB(240, 240, 255)
@@ -1146,9 +856,10 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	titleL.ZIndex = 5
 	titleL.Parent = card
 
+	-- Desc
 	local descL = Instance.new("TextLabel")
-	descL.Size = UDim2.new(1, -110, 0, 34)
-	descL.Position = UDim2.fromOffset(52, 38)
+	descL.Size = UDim2.new(1, -110, 0, 30)
+	descL.Position = UDim2.fromOffset(48, 38)
 	descL.BackgroundTransparency = 1
 	descL.Text = desc
 	descL.TextColor3 = Color3.fromRGB(120, 120, 140)
@@ -1159,124 +870,79 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	descL.ZIndex = 5
 	descL.Parent = card
 
+	-- Toggle switch
 	local toggle = Instance.new("TextButton")
-	toggle.Size = UDim2.fromOffset(56, 30)
-	toggle.Position = UDim2.new(1, -72, 0.5, -15)
+	toggle.Size = UDim2.fromOffset(52, 28)
+	toggle.Position = UDim2.new(1, -68, 0.5, -14)
 	toggle.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 	toggle.Text = ""
 	toggle.AutoButtonColor = false
 	toggle.ZIndex = 5
 	toggle.Parent = card
-	Util.MakeCorner(toggle, 15)
+	MakeCorner(toggle, 14)
 
 	local circle = Instance.new("Frame")
-	circle.Size = UDim2.fromOffset(24, 24)
+	circle.Size = UDim2.fromOffset(22, 22)
 	circle.Position = UDim2.fromOffset(3, 3)
 	circle.BackgroundColor3 = Color3.fromRGB(220, 220, 230)
 	circle.ZIndex = 6
 	circle.Parent = toggle
-	Util.MakeCorner(circle, 12)
+	MakeCorner(circle, 11)
 
-	local toggleGlow = Util.MakeGlow(toggle, 15, CurrentTheme, 0.8)
-	RegisterTheme(toggleGlow, "ImageColor3")
-
-	local enabled = false
+	local isOn = false
 	toggle.MouseButton1Click:Connect(function()
-		enabled = not enabled
-		local pos = enabled and UDim2.new(1, -27, 0, 3) or UDim2.fromOffset(3, 3)
-		local col = enabled and CurrentTheme or Color3.fromRGB(35, 35, 45)
-		Util.Tween(circle, Util.BackOut(0.35), { Position = pos })
-		Util.Tween(toggle, Util.QuartOut(0.3), { BackgroundColor3 = col })
-		if enabled then
-			Util.Tween(card, Util.QuartOut(0.3), { BackgroundTransparency = 0.15 })
-			Util.Tween(cardGlow, Util.QuartOut(0.4), { ImageTransparency = 0.7 })
+		isOn = not isOn
+		local pos = isOn and UDim2.new(1, -25, 0, 3) or UDim2.fromOffset(3, 3)
+		local col = isOn and CurrentTheme or Color3.fromRGB(35, 35, 45)
+		Tween(circle, BackOut(0.3), { Position = pos })
+		Tween(toggle, QuartOut(0.3), { BackgroundColor3 = col })
+		if isOn then
+			Tween(card, QuartOut(0.3), { BackgroundTransparency = 0.2 })
 		else
-			Util.Tween(card, Util.QuartOut(0.3), { BackgroundTransparency = 0.35 })
-			Util.Tween(cardGlow, Util.QuartOut(0.4), { ImageTransparency = 0.85 })
+			Tween(card, QuartOut(0.3), { BackgroundTransparency = 0.35 })
 		end
-		pcall(callback, enabled)
+		pcall(callback, isOn)
 	end)
 	AddRipple(toggle)
 	RegisterTheme(toggle, "BackgroundColor3")
 
+	-- Hover card lift
 	card.MouseEnter:Connect(function()
-		Util.Tween(card, Util.QuartOut(0.2), { BackgroundTransparency = 0.1 })
-		Util.Tween(cardGlow, Util.QuartOut(0.25), { ImageTransparency = 0.65 })
+		Tween(card, QuartOut(0.2), { BackgroundTransparency = 0.15 })
 	end)
 	card.MouseLeave:Connect(function()
-		Util.Tween(card, Util.QuartOut(0.2), { BackgroundTransparency = enabled and 0.15 or 0.35 })
-		Util.Tween(cardGlow, Util.QuartOut(0.25), { ImageTransparency = 0.85 })
+		Tween(card, QuartOut(0.2), { BackgroundTransparency = isOn and 0.2 or 0.35 })
 	end)
 
-	-- Favorite: creates a NEW standalone card (NOT a clone, to avoid connection leaks)
-	local favCard = nil
-	local favCardCleanup = nil
-
+	-- Star / Favorite logic
+	local favCard = nil -- clone placed in favorites page
 	starBtn.MouseButton1Click:Connect(function()
 		State.Favorites[id] = not State.Favorites[id]
 		starBtn.Text = State.Favorites[id] and "⭐" or "☆"
-		local targetColor = State.Favorites[id] and THEMES[1].color or Color3.fromRGB(100, 100, 120)
-		Util.Tween(starBtn, Util.BackOut(0.3), { TextColor3 = targetColor })
-
-		if not FavContentRef then return end
-
+		Tween(starBtn, BackOut(0.25), {})
 		if State.Favorites[id] then
-			if favCard then pcall(function() favCard:Destroy() end) end
-			-- Build fresh card instead of cloning to avoid connection leaks
-			favCard = Instance.new("Frame")
-			favCard.Name = id .. "_fav"
-			favCard.Size = UDim2.new(1, 0, 0, 56)
-			favCard.BackgroundColor3 = Color3.fromHex("#151520")
-			favCard.BackgroundTransparency = 0.2
+			if favCard then favCard:Destroy() end
+			favCard = card:Clone()
 			favCard.LayoutOrder = 10
-			favCard.ZIndex = 4
-			favCard.Parent = FavContentRef
-			Util.MakeCorner(favCard, 14)
-			Util.MakeStroke(favCard, 1, CurrentTheme, 0.7)
-
-			local iconLabel = Instance.new("TextLabel")
-			iconLabel.Size = UDim2.fromOffset(26, 26)
-			iconLabel.Position = UDim2.fromOffset(12, 15)
-			iconLabel.BackgroundTransparency = 1
-			iconLabel.Text = "⭐"
-			iconLabel.TextSize = 16
-			iconLabel.Font = Enum.Font.GothamBold
-			iconLabel.ZIndex = 5
-			iconLabel.Parent = favCard
-
-			local titleLabel = Instance.new("TextLabel")
-			titleLabel.Size = UDim2.new(1, -50, 0, 26)
-			titleLabel.Position = UDim2.fromOffset(44, 15)
-			titleLabel.BackgroundTransparency = 1
-			titleLabel.Text = "[★] " .. title
-			titleLabel.TextColor3 = Color3.fromRGB(220, 220, 240)
-			titleLabel.Font = Enum.Font.GothamBold
-			titleLabel.TextSize = 13
-			titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-			titleLabel.ZIndex = 5
-			titleLabel.Parent = favCard
-
+			favCard.Parent = FavsContent
 			Notify("Favorite Added", title .. " pinned to Favorites tab.", 2.5, "⭐")
 		else
-			if favCard then
-				pcall(function() favCard:Destroy() end)
-				favCard = nil
-			end
+			if favCard then favCard:Destroy() favCard = nil end
 			Notify("Favorite Removed", title .. " unpinned.", 2, "☆")
 		end
 	end)
 
 	RegisterSearchable(id, card, title)
-	return card, toggle, enabled
+	return card, toggle, isOn
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- ACTION BUTTON
--- ═══════════════════════════════════════════════════════════════════
-local function CreateActionBtn(page, id, icon, label, callback, order)
+-- ═══════════════════════════════════════════════════════
+-- ACTION BUTTON BUILDER
+-- ═══════════════════════════════════════════════════════
+local function CreateActionButton(page, id, icon, label, callback, order)
 	local btn = Instance.new("TextButton")
 	btn.Name = id
-	btn.Size = UDim2.new(1, 0, 0, 52)
+	btn.Size = UDim2.new(1, 0, 0, 50)
 	btn.BackgroundColor3 = CurrentTheme
 	btn.AutoButtonColor = false
 	btn.Text = icon .. "  " .. label
@@ -1286,575 +952,519 @@ local function CreateActionBtn(page, id, icon, label, callback, order)
 	btn.LayoutOrder = order or 0
 	btn.ZIndex = 4
 	btn.Parent = page
-	Util.MakeCorner(btn, 14)
+	MakeCorner(btn, 14)
 	RegisterTheme(btn, "BackgroundColor3")
-
-	local btnGlow = Util.MakeGlow(btn, 25, CurrentTheme, 0.7)
-	RegisterTheme(btnGlow, "ImageColor3")
-
 	AddRipple(btn)
 
 	btn.MouseEnter:Connect(function()
-		Util.Tween(btn, Util.BackOut(0.25), { Size = UDim2.new(1, 0, 0, 56) })
-		Util.Tween(btnGlow, Util.QuartOut(0.25), { ImageTransparency = 0.5 })
+		Tween(btn, BackOut(0.22), { Size = UDim2.new(1, 0, 0, 54) })
 	end)
 	btn.MouseLeave:Connect(function()
-		Util.Tween(btn, Util.QuartOut(0.22), { Size = UDim2.new(1, 0, 0, 52) })
-		Util.Tween(btnGlow, Util.QuartOut(0.25), { ImageTransparency = 0.7 })
+		Tween(btn, QuartOut(0.22), { Size = UDim2.new(1, 0, 0, 50) })
 	end)
 	btn.MouseButton1Click:Connect(function()
-		local ok, err = pcall(callback)
-		if not ok then
-			Notify("Action Error", tostring(err), 4, "⚠️")
-		end
+		pcall(callback)
 	end)
 	RegisterSearchable(id, btn, label)
 	return btn
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- AUTO DIE (Fixed: deadlock + cooldown)
--- ═══════════════════════════════════════════════════════════════════
-local autoDieConnection = nil
-local deathProcessing   = false
+-- ═══════════════════════════════════════════════════════
+-- AUTO DIE LOGIC
+-- ═══════════════════════════════════════════════════════
+local healthConnection  = nil
+local isProcessingDeath = false
 
-local function SetupAutoDie(char)
-	if not char then
-		char = LocalPlayer.Character
-	end
-	if not char then return end
-	local humanoid = char:FindFirstChild("Humanoid")
-	if not humanoid then
-		local ok
-		ok, humanoid = pcall(function() return char:WaitForChild("Humanoid", 5) end)
-		if not ok or not humanoid then return end
+local function SetupAutoDie()
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	local humanoid = char:WaitForChild("Humanoid")
+
+	if healthConnection then
+		healthConnection:Disconnect()
+		healthConnection = nil
 	end
 
-	if autoDieConnection then
-		autoDieConnection:Disconnect()
-		autoDieConnection = nil
-	end
+	local lastHealth = humanoid.Health
 
-	local lastHP = humanoid.Health
-
-	autoDieConnection = humanoid.HealthChanged:Connect(function(newHP)
-		if not State.AutoDie then return end
-		if deathProcessing then return end
-		if newHP <= 0 then
-			lastHP = newHP
-			return
+	healthConnection = humanoid.HealthChanged:Connect(function(currentHealth)
+		if State.AutoDie and not isProcessingDeath then
+			if currentHealth < lastHealth and currentHealth > 0 then
+				isProcessingDeath = true
+				task.wait(0.5)
+				pcall(function()
+					if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+						LocalPlayer.Character.Humanoid.Health = 0
+						Notify("Auto Die", "Character reset after taking damage.", 2, "💀")
+					end
+				end)
+				task.wait(1)
+				isProcessingDeath = false
+			end
 		end
-		if newHP >= lastHP then
-			lastHP = newHP
-			return
-		end
-
-		local now = tick()
-		if now - State.AutoDieCooldown < 1.5 then return end
-
-		deathProcessing = true
-		State.AutoDieCooldown = now
-
-		Notify("Auto Die", "Damage detected! Resetting in 0.5s...", 1.5, "💀")
-		task.wait(0.5)
-
-		local c = LocalPlayer.Character
-		if c and c:FindFirstChild("Humanoid") then
-			c.Humanoid.Health = 0
-		end
-		task.wait(1)
-		deathProcessing = false
+		lastHealth = humanoid.Health
 	end)
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- SPAWN SYSTEM (Fixed: deadlock, better validation)
--- ═══════════════════════════════════════════════════════════════════
-local spawnCoordDisplay = nil
+-- ═══════════════════════════════════════════════════════
+-- SETSPAWN LOGIC
+-- ═══════════════════════════════════════════════════════
+local spawnCoordLabel = nil  -- forward ref to UI label (assigned after UI build)
+
+local function FormatCoords(cf)
+	if not cf then return "ไม่ได้ตั้งค่า" end
+	local p = cf.Position
+	return string.format("X:%.1f  Y:%.1f  Z:%.1f", p.X, p.Y, p.Z)
+end
 
 local function SetSpawn()
 	local char = LocalPlayer.Character
 	if not char then
-		Notify("Set Spawn", "Character not found. Try again.", 2.5, "⚠️")
+		Notify("Set Spawn", "ไม่พบตัวละคร กรุณาลองใหม่", 2.5, "⚠️")
 		return
 	end
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not root then
-		Notify("Set Spawn", "HumanoidRootPart not found.", 2.5, "⚠️")
+		Notify("Set Spawn", "ไม่พบ HumanoidRootPart", 2.5, "⚠️")
 		return
 	end
 	State.SpawnCFrame = root.CFrame
-	if spawnCoordDisplay then
-		spawnCoordDisplay.Text = "📍 " .. Util.FormatCoords(State.SpawnCFrame)
+	if spawnCoordLabel then
+		spawnCoordLabel.Text = "📍 " .. FormatCoords(State.SpawnCFrame)
 	end
-	Notify("Set Spawn", "Spawn point saved:\n" .. Util.FormatCoords(State.SpawnCFrame), 3, "📍")
+	Notify("Set Spawn", "บันทึกจุด Spawn แล้ว:\n" .. FormatCoords(State.SpawnCFrame), 3, "📍")
 end
 
 local function GoToSpawn()
 	if not State.SpawnCFrame then
-		Notify("Go to Spawn", "No spawn point set. Press SET first.", 3, "⚠️")
+		Notify("Go to Spawn", "ยังไม่ได้ตั้งจุด Spawn กด Set ก่อน", 3, "⚠️")
 		return
 	end
 	local char = LocalPlayer.Character
-	if not char then
-		Notify("Go to Spawn", "Character not loaded.", 2, "⚠️")
-		return
-	end
+	if not char then return end
 	local root = char:FindFirstChild("HumanoidRootPart")
-	if not root then
-		Notify("Go to Spawn", "HumanoidRootPart not found.", 2, "⚠️")
-		return
-	end
-	local ok, err = pcall(function()
+	if root then
 		root.CFrame = State.SpawnCFrame
-	end)
-	if ok then
-		Notify("Go to Spawn", "Teleported to spawn point.", 2, "🏃")
-	else
-		Notify("Go to Spawn", "Teleport failed: " .. tostring(err), 3, "⚠️")
+		Notify("Go to Spawn", "เทเลพอร์ตไปยังจุด Spawn", 2, "🏃")
 	end
 end
 
 local function ClearSpawn()
 	if not State.SpawnCFrame then
-		Notify("Clear Spawn", "No spawn point set.", 2, "ℹ️")
+		Notify("Clear Spawn", "ยังไม่มีจุด Spawn ที่ตั้งไว้", 2, "ℹ️")
 		return
 	end
 	State.SpawnCFrame = nil
-	if spawnCoordDisplay then
-		spawnCoordDisplay.Text = "📍 Not set"
+	if spawnCoordLabel then
+		spawnCoordLabel.Text = "📍 ไม่ได้ตั้งค่า"
 	end
-	Notify("Clear Spawn", "Spawn point cleared.", 2, "🗑️")
+	Notify("Clear Spawn", "ล้างจุด Spawn แล้ว", 2, "🗑️")
 end
 
--- CharacterAdded: AutoDie + AutoSpawn (no deadlock)
-LocalPlayer.CharacterAdded:Connect(function(newChar)
+LocalPlayer.CharacterAdded:Connect(function()
 	task.wait(0.8)
-	SetupAutoDie(newChar)
+	SetupAutoDie()
+	-- Auto-teleport to saved spawn if enabled
 	if State.AutoSpawn and State.SpawnCFrame then
 		task.wait(0.5)
-		local root = newChar:FindFirstChild("HumanoidRootPart")
-		if root then
-			local ok = pcall(function()
-				root.CFrame = State.SpawnCFrame
-			end)
-			if ok then
-				Notify("Auto Spawn", "Teleported back to spawn point.", 2.5, "📍")
+		pcall(function()
+			local char = LocalPlayer.Character
+			if char then
+				local root = char:FindFirstChild("HumanoidRootPart")
+				if root then
+					root.CFrame = State.SpawnCFrame
+					Notify("Auto Spawn", "เทเลพอร์ตกลับจุด Spawn อัตโนมัติ", 2.5, "📍")
+				end
 			end
-		end
+		end)
 	end
 end)
 
 if LocalPlayer.Character then
-	SetupAutoDie(LocalPlayer.Character)
+	SetupAutoDie()
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- TELEPORT TO TARGET
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- TELEPORT LOGIC
+-- ═══════════════════════════════════════════════════════
 local function TeleportToTarget()
-	if not State.SelectedTarget then
-		Notify("Teleport", "No target selected. Click a player in Radar tab.", 3, "⚡")
+	if not State.SelectedTarget or not State.SelectedTarget.Character then
+		Notify("Teleport Failed", "No target selected or target is unavailable.", 3, "⚡")
 		return
 	end
-	local char = State.SelectedTarget.Character
-	if not char then
-		Notify("Teleport", "Target has no character.", 2.5, "⚠️")
-		return
-	end
-	local myChar = LocalPlayer.Character
-	if not myChar then return end
+	local myChar     = LocalPlayer.Character
+	local targetChar = State.SelectedTarget.Character
+	if not myChar or not targetChar then return end
 
-	local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-	local tgtRoot = char:FindFirstChild("HumanoidRootPart")
-	if myRoot and tgtRoot then
-		myRoot.CFrame = tgtRoot.CFrame * CFrame.new(0, 0, 3)
-		Notify("Teleported", "Jumped to " .. State.SelectedTarget.Name, 2.5, "⚡")
+	local myRoot     = myChar:FindFirstChild("HumanoidRootPart")
+	local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+	if myRoot and targetRoot then
+		myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 3)
+		Notify("Teleported!", "Jumped to " .. State.SelectedTarget.Name, 2.5, "⚡")
 	end
 end
 
--- ═══════════════════════════════════════════════════════════════════
--- BUILD PAGES
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- PAGES
+-- ═══════════════════════════════════════════════════════
 
--- ── COMBAT ──
+-- ─── COMBAT PAGE ───
 local CombatPage = CreatePage("Combat")
 SectionHeader(CombatPage, "⚔️  Combat Protection", 1)
 
 CreateToggle(CombatPage, "auto_die", "Auto Die on Damage",
-	"Resets character 0.5s after taking damage. Includes cooldown to prevent spam.",
+	"Resets character 0.5s after taking any damage. Useful for farming respawns.",
 	function(v)
 		State.AutoDie = v
-		Notify("Auto Die", v and "Enabled" or "Disabled", 2.5, v and "✅" or "❌")
+		Notify("Auto Die", v and "Enabled — will reset on damage." or "Disabled.", 2.5, v and "✅" or "❌")
 	end, 2)
 
 CreateToggle(CombatPage, "god_mode_ui", "God Mode Indicator",
-	"Visual indicator for invulnerability status.",
+	"Visual indicator only — shows when your character is invulnerable.",
 	function(v)
-		State.GodModeUI = v
-		Notify("God Mode", v and "Active" or "Inactive", 2, "🛡")
+		Notify("God Mode Indicator", v and "Active" or "Inactive", 2, "🛡")
 	end, 3)
 
 CreateToggle(CombatPage, "anti_aim", "Anti-Aim Toggle",
-	"Toggle anti-aim stance to confuse enemy targeting.",
+	"Toggle anti-aim stance to throw off enemy targeting systems.",
 	function(v)
-		State.AntiAim = v
 		Notify("Anti-Aim", v and "Activated" or "Deactivated", 2, "🔄")
 	end, 4)
 
--- Spawn Section
-SectionHeader(CombatPage, "📍  Spawn Point Manager", 5)
+-- ─── SetSpawn Section Header ───
+SectionHeader(CombatPage, "📍  Spawn Point", 5)
 
+-- SetSpawn UI Card
 do
+	-- ── wrapper ที่ layout ของ page จะจัดการ ──
 	local spawnCard = Instance.new("Frame")
-	spawnCard.Name = "SpawnCard"
-	spawnCard.Size = UDim2.new(1, 0, 0, 206)
+	spawnCard.Name        = "setspawn_card"
+	spawnCard.Size        = UDim2.new(1, 0, 0, 186)
 	spawnCard.BackgroundColor3 = Color3.fromHex("#111118")
 	spawnCard.BackgroundTransparency = 0.3
 	spawnCard.LayoutOrder = 6
 	spawnCard.ClipsDescendants = false
-	spawnCard.ZIndex = 4
-	spawnCard.Parent = CombatPage
-	Util.MakeCorner(spawnCard, 16)
+	spawnCard.ZIndex      = 4
+	spawnCard.Parent      = CombatPage
+	MakeCorner(spawnCard, 16)
 
-	local cardStroke = Util.MakeStroke(spawnCard, 1.2, CurrentTheme, 0.55)
+	local cardStroke = MakeStroke(spawnCard, 1.2, CurrentTheme, 0.55)
 	RegisterTheme(cardStroke, "Color")
 
-	local spawnGlow = Util.MakeGlow(spawnCard, 25, CurrentTheme, 0.85)
-	RegisterTheme(spawnGlow, "ImageColor3")
+	-- ── inner UIListLayout ── จัดเรียงแถวแนวตั้ง
+	local innerLayout = Instance.new("UIListLayout")
+	innerLayout.SortOrder        = Enum.SortOrder.LayoutOrder
+	innerLayout.FillDirection    = Enum.FillDirection.Vertical
+	innerLayout.Padding          = UDim.new(0, 10)
+	innerLayout.Parent           = spawnCard
 
-	local innerL = Instance.new("UIListLayout")
-	innerL.SortOrder = Enum.SortOrder.LayoutOrder
-	innerL.FillDirection = Enum.FillDirection.Vertical
-	innerL.Padding = UDim.new(0, 10)
-	innerL.Parent = spawnCard
+	local innerPad = Instance.new("UIPadding")
+	innerPad.PaddingTop    = UDim.new(0, 12)
+	innerPad.PaddingBottom = UDim.new(0, 12)
+	innerPad.PaddingLeft   = UDim.new(0, 14)
+	innerPad.PaddingRight  = UDim.new(0, 14)
+	innerPad.Parent        = spawnCard
 
-	local innerP = Instance.new("UIPadding")
-	innerP.PaddingTop = UDim.new(0, 14)
-	innerP.PaddingBottom = UDim.new(0, 14)
-	innerP.PaddingLeft = UDim.new(0, 16)
-	innerP.PaddingRight = UDim.new(0, 16)
-	innerP.Parent = spawnCard
+	-- ── แถว 1: ไอคอน + ชื่อ ──
+	local headerRow = Instance.new("Frame")
+	headerRow.Size               = UDim2.new(1, 0, 0, 24)
+	headerRow.BackgroundTransparency = 1
+	headerRow.LayoutOrder        = 1
+	headerRow.ZIndex             = 5
+	headerRow.Parent             = spawnCard
 
-	local hRow = Instance.new("Frame")
-	hRow.Size = UDim2.new(1, 0, 0, 26)
-	hRow.BackgroundTransparency = 1
-	hRow.LayoutOrder = 1
-	hRow.ZIndex = 5
-	hRow.Parent = spawnCard
+	local spawnIcon = Instance.new("TextLabel")
+	spawnIcon.Size               = UDim2.fromOffset(24, 24)
+	spawnIcon.Position           = UDim2.fromOffset(0, 0)
+	spawnIcon.BackgroundTransparency = 1
+	spawnIcon.Text               = "📍"
+	spawnIcon.TextSize           = 16
+	spawnIcon.Font               = Enum.Font.GothamBold
+	spawnIcon.ZIndex             = 6
+	spawnIcon.Parent             = headerRow
 
-	local sIcon = Instance.new("TextLabel")
-	sIcon.Size = UDim2.fromOffset(26, 26)
-	sIcon.Position = UDim2.fromOffset(0, 0)
-	sIcon.BackgroundTransparency = 1
-	sIcon.Text = "📍"
-	sIcon.TextSize = 18
-	sIcon.Font = Enum.Font.GothamBold
-	sIcon.ZIndex = 6
-	sIcon.Parent = hRow
+	local spawnTitle = Instance.new("TextLabel")
+	spawnTitle.Size              = UDim2.new(1, -30, 1, 0)
+	spawnTitle.Position          = UDim2.fromOffset(30, 0)
+	spawnTitle.BackgroundTransparency = 1
+	spawnTitle.Text              = "Set Spawn Point"
+	spawnTitle.TextColor3        = Color3.fromRGB(240, 240, 255)
+	spawnTitle.Font              = Enum.Font.GothamBold
+	spawnTitle.TextSize          = 14
+	spawnTitle.TextXAlignment    = Enum.TextXAlignment.Left
+	spawnTitle.ZIndex            = 6
+	spawnTitle.Parent            = headerRow
 
-	local sTitle = Instance.new("TextLabel")
-	sTitle.Size = UDim2.new(1, -32, 1, 0)
-	sTitle.Position = UDim2.fromOffset(32, 0)
-	sTitle.BackgroundTransparency = 1
-	sTitle.Text = "Spawn Point"
-	sTitle.TextColor3 = Color3.fromRGB(240, 240, 255)
-	sTitle.Font = Enum.Font.GothamBold
-	sTitle.TextSize = 14
-	sTitle.TextXAlignment = Enum.TextXAlignment.Left
-	sTitle.ZIndex = 6
-	sTitle.Parent = hRow
-
-	local coordBox = Instance.new("Frame")
-	coordBox.Size = UDim2.new(1, 0, 0, 32)
-	coordBox.BackgroundColor3 = Color3.fromHex("#07070E")
-	coordBox.BackgroundTransparency = 0.1
-	coordBox.LayoutOrder = 2
-	coordBox.ZIndex = 5
-	coordBox.Parent = spawnCard
-	Util.MakeCorner(coordBox, 10)
+	-- ── แถว 2: แสดงพิกัด ──
+	local coordBg = Instance.new("Frame")
+	coordBg.Size                = UDim2.new(1, 0, 0, 30)
+	coordBg.BackgroundColor3    = Color3.fromHex("#07070E")
+	coordBg.BackgroundTransparency = 0.1
+	coordBg.LayoutOrder         = 2
+	coordBg.ZIndex              = 5
+	coordBg.Parent              = spawnCard
+	MakeCorner(coordBg, 8)
 
 	local coordLabel = Instance.new("TextLabel")
-	coordLabel.Size = UDim2.fromScale(1, 1)
+	coordLabel.Size             = UDim2.fromScale(1, 1)
 	coordLabel.BackgroundTransparency = 1
-	coordLabel.Text = "📍  Not set"
-	coordLabel.TextColor3 = CurrentTheme
-	coordLabel.Font = Enum.Font.GothamBold
-	coordLabel.TextSize = 11
-	coordLabel.ZIndex = 6
-	coordLabel.Parent = coordBox
+	coordLabel.Text             = "📍  ยังไม่ได้ตั้งค่าจุด Spawn"
+	coordLabel.TextColor3       = CurrentTheme
+	coordLabel.Font             = Enum.Font.GothamBold
+	coordLabel.TextSize         = 11
+	coordLabel.ZIndex           = 6
+	coordLabel.Parent           = coordBg
 	RegisterTheme(coordLabel, "TextColor3")
-	spawnCoordDisplay = coordLabel
+	spawnCoordLabel = coordLabel   -- เชื่อมกับ logic
 
+	-- ── แถว 3: ปุ่ม SET / GO / CLEAR ──
 	local btnRow = Instance.new("Frame")
-	btnRow.Size = UDim2.new(1, 0, 0, 44)
+	btnRow.Size                 = UDim2.new(1, 0, 0, 42)
 	btnRow.BackgroundTransparency = 1
-	btnRow.LayoutOrder = 3
-	btnRow.ZIndex = 5
-	btnRow.Parent = spawnCard
+	btnRow.LayoutOrder          = 3
+	btnRow.ZIndex               = 5
+	btnRow.Parent               = spawnCard
 
-	local btnList = Instance.new("UIListLayout")
-	btnList.FillDirection = Enum.FillDirection.Horizontal
-	btnList.Padding = UDim.new(0, 10)
-	btnList.Parent = btnRow
+	local btnListLayout = Instance.new("UIListLayout")
+	btnListLayout.FillDirection = Enum.FillDirection.Horizontal
+	btnListLayout.Padding       = UDim.new(0, 8)
+	btnListLayout.Parent        = btnRow
 
-	local function MkBtn(text, color, txtColor, fn)
+	local function MakeSpawnBtn(label, bgColor, txtColor, fn)
 		local b = Instance.new("TextButton")
-		b.Size = UDim2.new(0.333, -5, 1, 0)
-		b.BackgroundColor3 = color
+		b.Size                  = UDim2.new(0.333, -6, 1, 0)
+		b.BackgroundColor3      = bgColor
 		b.BackgroundTransparency = 0.1
-		b.Text = text
-		b.TextColor3 = txtColor
-		b.Font = Enum.Font.GothamBold
-		b.TextSize = 12
-		b.AutoButtonColor = false
-		b.ZIndex = 6
-		b.Parent = btnRow
-		Util.MakeCorner(b, 10)
+		b.Text                  = label
+		b.TextColor3            = txtColor
+		b.Font                  = Enum.Font.GothamBold
+		b.TextSize              = 12
+		b.AutoButtonColor       = false
+		b.ZIndex                = 6
+		b.Parent                = btnRow
+		MakeCorner(b, 10)
 		AddRipple(b)
 
 		b.MouseEnter:Connect(function()
-			Util.Tween(b, Util.BackOut(0.2), { BackgroundTransparency = 0, Size = UDim2.new(0.333, -3, 1, 0) })
+			Tween(b, BackOut(0.2), { BackgroundTransparency = 0 })
 		end)
 		b.MouseLeave:Connect(function()
-			Util.Tween(b, Util.QuartOut(0.2), { BackgroundTransparency = 0.1, Size = UDim2.new(0.333, -5, 1, 0) })
+			Tween(b, QuartOut(0.2), { BackgroundTransparency = 0.1 })
 		end)
-		b.MouseButton1Click:Connect(function()
-			local ok, err = pcall(fn)
-			if not ok then
-				Notify("Error", tostring(err), 4, "⚠️")
-			end
-		end)
+		b.MouseButton1Click:Connect(function() pcall(fn) end)
 		return b
 	end
 
-	MkBtn("📍 SET",   Color3.fromHex("#34D399"), Color3.fromRGB(8, 28, 16),  SetSpawn)
-	MkBtn("🏃 GO",    CurrentTheme,              Color3.fromRGB(10, 10, 18), GoToSpawn)
-	MkBtn("🗑 CLEAR", Color3.fromHex("#F87171"), Color3.fromRGB(28, 8, 8),   ClearSpawn)
+	MakeSpawnBtn("📍 SET",    Color3.fromHex("#34D399"), Color3.fromRGB(8, 28, 16),  SetSpawn)
+	MakeSpawnBtn("🏃 GO",     CurrentTheme,              Color3.fromRGB(10, 10, 18), GoToSpawn)
+	MakeSpawnBtn("🗑 CLEAR",  Color3.fromHex("#F87171"), Color3.fromRGB(28, 8, 8),   ClearSpawn)
 
-	-- Auto-Spawn toggle row
+	-- ── แถว 4: Auto-Spawn Toggle ──
 	local autoRow = Instance.new("Frame")
-	autoRow.Size = UDim2.new(1, 0, 0, 30)
-	autoRow.BackgroundColor3 = Color3.fromHex("#0C0C14")
+	autoRow.Size                = UDim2.new(1, 0, 0, 28)
+	autoRow.BackgroundColor3    = Color3.fromHex("#0C0C14")
 	autoRow.BackgroundTransparency = 0.3
-	autoRow.LayoutOrder = 4
-	autoRow.ZIndex = 5
-	autoRow.Parent = spawnCard
-	Util.MakeCorner(autoRow, 10)
+	autoRow.LayoutOrder         = 4
+	autoRow.ZIndex              = 5
+	autoRow.Parent              = spawnCard
+	MakeCorner(autoRow, 8)
 
 	local autoLabel = Instance.new("TextLabel")
-	autoLabel.Size = UDim2.new(1, -64, 1, 0)
-	autoLabel.Position = UDim2.fromOffset(10, 0)
+	autoLabel.Size              = UDim2.new(1, -60, 1, 0)
+	autoLabel.Position          = UDim2.fromOffset(10, 0)
 	autoLabel.BackgroundTransparency = 1
-	autoLabel.Text = "🔄  Auto-Spawn on Respawn"
-	autoLabel.TextColor3 = Color3.fromRGB(160, 160, 185)
-	autoLabel.Font = Enum.Font.GothamBold
-	autoLabel.TextSize = 11
-	autoLabel.TextXAlignment = Enum.TextXAlignment.Left
-	autoLabel.ZIndex = 6
-	autoLabel.Parent = autoRow
+	autoLabel.Text              = "🔄  Auto-Spawn on Respawn"
+	autoLabel.TextColor3        = Color3.fromRGB(160, 160, 185)
+	autoLabel.Font              = Enum.Font.GothamBold
+	autoLabel.TextSize          = 11
+	autoLabel.TextXAlignment    = Enum.TextXAlignment.Left
+	autoLabel.ZIndex            = 6
+	autoLabel.Parent            = autoRow
 
-	local autoTgl = Instance.new("TextButton")
-	autoTgl.Size = UDim2.fromOffset(46, 24)
-	autoTgl.Position = UDim2.new(1, -52, 0.5, -12)
-	autoTgl.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
-	autoTgl.Text = ""
-	autoTgl.AutoButtonColor = false
-	autoTgl.ZIndex = 6
-	autoTgl.Parent = autoRow
-	Util.MakeCorner(autoTgl, 12)
-	AddRipple(autoTgl)
+	local autoToggle = Instance.new("TextButton")
+	autoToggle.Size             = UDim2.fromOffset(44, 22)
+	autoToggle.Position         = UDim2.new(1, -50, 0.5, -11)
+	autoToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
+	autoToggle.Text             = ""
+	autoToggle.AutoButtonColor  = false
+	autoToggle.ZIndex           = 6
+	autoToggle.Parent           = autoRow
+	MakeCorner(autoToggle, 11)
+	AddRipple(autoToggle)
 
-	local autoDot = Instance.new("Frame")
-	autoDot.Size = UDim2.fromOffset(20, 20)
-	autoDot.Position = UDim2.fromOffset(2, 2)
-	autoDot.BackgroundColor3 = Color3.fromRGB(200, 200, 220)
-	autoDot.ZIndex = 7
-	autoDot.Parent = autoTgl
-	Util.MakeCorner(autoDot, 10)
+	local autoCircle = Instance.new("Frame")
+	autoCircle.Size             = UDim2.fromOffset(18, 18)
+	autoCircle.Position         = UDim2.fromOffset(2, 2)
+	autoCircle.BackgroundColor3 = Color3.fromRGB(200, 200, 220)
+	autoCircle.ZIndex           = 7
+	autoCircle.Parent           = autoToggle
+	MakeCorner(autoCircle, 9)
 
-	local autoSpawnEnabled = false
-	autoTgl.MouseButton1Click:Connect(function()
-		autoSpawnEnabled = not autoSpawnEnabled
-		State.AutoSpawn = autoSpawnEnabled
-		local onPos = UDim2.new(1, -22, 0, 2)
+	autoToggle.MouseButton1Click:Connect(function()
+		State.AutoSpawn = not State.AutoSpawn
+		local onPos = UDim2.new(1, -20, 0, 2)
 		local offPos = UDim2.fromOffset(2, 2)
-		Util.Tween(autoDot, Util.BackOut(0.35), { Position = autoSpawnEnabled and onPos or offPos })
-		Util.Tween(autoTgl, Util.QuartOut(0.3), {
-			BackgroundColor3 = autoSpawnEnabled and CurrentTheme or Color3.fromRGB(35, 35, 48)
+		Tween(autoCircle, BackOut(0.3), { Position = State.AutoSpawn and onPos or offPos })
+		Tween(autoToggle, QuartOut(0.3), {
+			BackgroundColor3 = State.AutoSpawn and CurrentTheme or Color3.fromRGB(35, 35, 48)
 		})
-		Notify("Auto Spawn", autoSpawnEnabled and "On" or "Off", 2.5, "🔄")
+		Notify(
+			"Auto Spawn",
+			State.AutoSpawn and "เปิดแล้ว — จะ Teleport กลับจุด Spawn อัตโนมัติเมื่อ Respawn" or "ปิดแล้ว",
+			2.5, "🔄"
+		)
 	end)
 
-	RegisterSearchable("spawn_card", spawnCard, "Spawn Point")
+	RegisterSearchable("setspawn_card", spawnCard, "Set Spawn Point")
 end
 
--- ── RADAR ──
+-- ─── RADAR / TELEPORT PAGE ───
 local RadarPage = CreatePage("Radar")
 SectionHeader(RadarPage, "⚡  Player Radar", 1)
 
-CreateActionBtn(RadarPage, "tp_target", "⚡", "Teleport to Selected Target", TeleportToTarget, 2)
+CreateActionButton(RadarPage, "tp_button", "⚡", "Teleport to Selected Target", TeleportToTarget, 2)
 
-local RadarCard = Instance.new("Frame")
-RadarCard.Name = "RadarCard"
-RadarCard.Size = UDim2.new(1, 0, 0, 320)
-RadarCard.BackgroundColor3 = Color3.fromHex("#0D0D14")
-RadarCard.BackgroundTransparency = 0.3
-RadarCard.LayoutOrder = 3
-RadarCard.ZIndex = 4
-RadarCard.Parent = RadarPage
-Util.MakeCorner(RadarCard, 16)
-local radarStroke = Util.MakeStroke(RadarCard, 1, CurrentTheme, 0.6)
-RegisterTheme(radarStroke, "Color")
+-- Player list card
+local PlayerListCard = Instance.new("Frame")
+PlayerListCard.Name = "PlayerListCard"
+PlayerListCard.Size = UDim2.new(1, 0, 0, 280)
+PlayerListCard.BackgroundColor3 = Color3.fromHex("#0D0D14")
+PlayerListCard.BackgroundTransparency = 0.3
+PlayerListCard.LayoutOrder = 3
+PlayerListCard.ZIndex = 4
+PlayerListCard.Parent = RadarPage
+MakeCorner(PlayerListCard, 16)
 
-local PlayerScroller = Instance.new("ScrollingFrame")
-PlayerScroller.Size = UDim2.fromScale(1, 1)
-PlayerScroller.BackgroundTransparency = 1
-PlayerScroller.BorderSizePixel = 0
-PlayerScroller.ScrollBarThickness = 4
-PlayerScroller.ScrollBarImageColor3 = CurrentTheme
-PlayerScroller.AutomaticCanvasSize = Enum.AutomaticSize.Y
-PlayerScroller.CanvasSize = UDim2.new(0, 0, 0, 0)
-PlayerScroller.ZIndex = 4
-PlayerScroller.Parent = RadarCard
-RegisterTheme(PlayerScroller, "ScrollBarImageColor3")
+local PlayerScrollFrame = Instance.new("ScrollingFrame")
+PlayerScrollFrame.Size = UDim2.fromScale(1, 1)
+PlayerScrollFrame.BackgroundTransparency = 1
+PlayerScrollFrame.BorderSizePixel = 0
+PlayerScrollFrame.ScrollBarThickness = 3
+PlayerScrollFrame.ScrollBarImageColor3 = CurrentTheme
+PlayerScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerScrollFrame.CanvasSize = UDim2.new(0,0,0,0)
+PlayerScrollFrame.ZIndex = 4
+PlayerScrollFrame.Parent = PlayerListCard
+RegisterTheme(PlayerScrollFrame, "ScrollBarImageColor3")
 
-local PlayerListLayout = Instance.new("UIListLayout")
-PlayerListLayout.Padding = UDim.new(0, 8)
-PlayerListLayout.Parent = PlayerScroller
+local PListLayout = Instance.new("UIListLayout")
+PListLayout.Padding = UDim.new(0, 6)
+PListLayout.Parent = PlayerScrollFrame
 
-local PlayerListPad = Instance.new("UIPadding")
-PlayerListPad.PaddingTop    = UDim.new(0, 12)
-PlayerListPad.PaddingBottom = UDim.new(0, 12)
-PlayerListPad.PaddingLeft   = UDim.new(0, 12)
-PlayerListPad.PaddingRight  = UDim.new(0, 12)
-PlayerListPad.Parent = PlayerScroller
+local PListPad = Instance.new("UIPadding")
+PListPad.PaddingTop    = UDim.new(0, 10)
+PListPad.PaddingBottom = UDim.new(0, 10)
+PListPad.PaddingLeft   = UDim.new(0, 10)
+PListPad.PaddingRight  = UDim.new(0, 10)
+PListPad.Parent = PlayerScrollFrame
 
 local function RefreshPlayerList()
-	for _, child in ipairs(PlayerScroller:GetChildren()) do
-		if child:IsA("TextButton") or child:IsA("Frame") then
-			child:Destroy()
+	-- Clear old entries
+	for _, c in ipairs(PlayerScrollFrame:GetChildren()) do
+		if c:IsA("TextButton") or c:IsA("Frame") then
+			c:Destroy()
 		end
 	end
 
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer then
 			local row = Instance.new("Frame")
-			row.Size = UDim2.new(1, 0, 0, 50)
+			row.Size = UDim2.new(1, 0, 0, 46)
 			row.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 			row.BackgroundTransparency = 0.3
 			row.ZIndex = 5
-			row.Parent = PlayerScroller
-			Util.MakeCorner(row, 12)
-			Util.MakeStroke(row, 1, Color3.fromRGB(255, 255, 255), 0.93)
+			row.Parent = PlayerScrollFrame
+			MakeCorner(row, 10)
 
-			-- Avatar (using correct Roblox thumbnail format - fallback to placeholder)
+			-- Avatar thumbnail
 			local avatar = Instance.new("ImageLabel")
-			avatar.Size = UDim2.fromOffset(36, 36)
-			avatar.Position = UDim2.fromOffset(7, 7)
-			avatar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+			avatar.Size = UDim2.fromOffset(34, 34)
+			avatar.Position = UDim2.fromOffset(6, 6)
+			avatar.BackgroundColor3 = Color3.fromRGB(30,30,40)
 			avatar.BackgroundTransparency = 0.5
-			avatar.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-			avatar.ImageTransparency = 0.3
+			avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. plr.UserId .. "&width=48&height=48&format=png"
 			avatar.ZIndex = 6
 			avatar.Parent = row
-			Util.MakeCorner(avatar, 10)
+			MakeCorner(avatar, 8)
 
-			-- Async load avatar from Roblox API
-			task.spawn(function()
-				local ok, result = pcall(function()
-					return game:GetService("HttpService"):GetAsync(
-						string.format("https://thumbnails.roblox.com/v1/users/avatar?userIds=%d&size=48x48&format=Png&isCircular=false", plr.UserId)
-					)
-				end)
-				if ok and result then
-					local decoded = HttpService:JSONDecode(result)
-					if decoded and decoded.data and #decoded.data > 0 then
-						local imageUrl = decoded.data[1].imageUrl
-						if imageUrl and avatar and avatar.Parent then
-							avatar.Image = imageUrl
-							avatar.ImageTransparency = 0
-						end
-					end
-				end
-			end)
-
+			-- Online dot
 			local dot = Instance.new("Frame")
-			dot.Size = UDim2.fromOffset(10, 10)
-			dot.Position = UDim2.fromOffset(34, 34)
+			dot.Size = UDim2.fromOffset(8, 8)
+			dot.Position = UDim2.fromOffset(32, 32)
 			dot.BackgroundColor3 = Color3.fromRGB(52, 211, 153)
 			dot.ZIndex = 7
 			dot.Parent = row
-			Util.MakeCorner(dot, 5)
-			Util.MakeStroke(dot, 1.5, Color3.fromHex("#080810"), 0)
+			MakeCorner(dot, 4)
+			MakeStroke(dot, 1.5, Color3.fromHex("#080810"), 0)
 
-			local nameLbl = Instance.new("TextLabel")
-			nameLbl.Size = UDim2.new(1, -110, 0, 22)
-			nameLbl.Position = UDim2.fromOffset(52, 6)
-			nameLbl.BackgroundTransparency = 1
-			nameLbl.Text = plr.Name
-			nameLbl.TextColor3 = Color3.fromRGB(215, 215, 230)
-			nameLbl.Font = Enum.Font.GothamBold
-			nameLbl.TextSize = 13
-			nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-			nameLbl.ZIndex = 6
-			nameLbl.Parent = row
+			local nameLabel = Instance.new("TextLabel")
+			nameLabel.Size = UDim2.new(1, -100, 0, 22)
+			nameLabel.Position = UDim2.fromOffset(48, 6)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text = plr.Name
+			nameLabel.TextColor3 = Color3.fromRGB(215, 215, 230)
+			nameLabel.Font = Enum.Font.GothamBold
+			nameLabel.TextSize = 13
+			nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+			nameLabel.ZIndex = 6
+			nameLabel.Parent = row
 
-			local hpBar = Instance.new("Frame")
-			hpBar.Size = UDim2.new(1, -110, 0, 5)
-			hpBar.Position = UDim2.fromOffset(52, 32)
-			hpBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-			hpBar.ZIndex = 6
-			hpBar.Parent = row
-			Util.MakeCorner(hpBar, 3)
+			-- Health bar (if character exists)
+			local healthBar = Instance.new("Frame")
+			healthBar.Size = UDim2.new(1, -100, 0, 4)
+			healthBar.Position = UDim2.fromOffset(48, 32)
+			healthBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+			healthBar.ZIndex = 6
+			healthBar.Parent = row
+			MakeCorner(healthBar, 2)
 
-			local hpFill = Instance.new("Frame")
-			hpFill.Size = UDim2.fromScale(1, 1)
-			hpFill.BackgroundColor3 = Color3.fromHex("#34D399")
-			hpFill.ZIndex = 7
-			hpFill.Parent = hpBar
-			Util.MakeCorner(hpFill, 3)
+			local healthFill = Instance.new("Frame")
+			healthFill.Size = UDim2.fromScale(1, 1)
+			healthFill.BackgroundColor3 = Color3.fromHex("#34D399")
+			healthFill.ZIndex = 7
+			healthFill.Parent = healthBar
+			MakeCorner(healthFill, 2)
 
+			-- Update health bar
 			local char = plr.Character
 			if char then
 				local hum = char:FindFirstChild("Humanoid")
 				if hum then
 					local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-					hpFill.Size = UDim2.fromScale(pct, 1)
-					hpFill.BackgroundColor3 = pct > 0.5 and Color3.fromHex("#34D399")
-						or (pct > 0.25 and Color3.fromHex("#F0C14B") or Color3.fromHex("#F87171"))
+					healthFill.Size = UDim2.fromScale(pct, 1)
+					healthFill.BackgroundColor3 = pct > 0.5 and Color3.fromHex("#34D399") or (pct > 0.25 and Color3.fromHex("#F0C14B") or Color3.fromHex("#F87171"))
 				end
 			end
 
+			-- Select button
 			local selBtn = Instance.new("TextButton")
-			selBtn.Size = UDim2.fromOffset(54, 30)
-			selBtn.Position = UDim2.new(1, -62, 0.5, -15)
+			selBtn.Size = UDim2.fromOffset(50, 28)
+			selBtn.Position = UDim2.new(1, -58, 0.5, -14)
 			selBtn.BackgroundColor3 = State.SelectedTarget == plr and CurrentTheme or Color3.fromRGB(30, 30, 42)
 			selBtn.AutoButtonColor = false
 			selBtn.Text = State.SelectedTarget == plr and "✓ SEL" or "SELECT"
-			selBtn.TextColor3 = State.SelectedTarget == plr and Color3.fromRGB(15, 15, 20) or Color3.fromRGB(170, 170, 190)
+			selBtn.TextColor3 = State.SelectedTarget == plr and Color3.fromRGB(15,15,20) or Color3.fromRGB(170,170,190)
 			selBtn.Font = Enum.Font.GothamBold
 			selBtn.TextSize = 9
 			selBtn.ZIndex = 6
 			selBtn.Parent = row
-			Util.MakeCorner(selBtn, 8)
+			MakeCorner(selBtn, 8)
 			RegisterTheme(selBtn, "BackgroundColor3")
 			AddRipple(selBtn)
 
 			selBtn.MouseButton1Click:Connect(function()
 				State.SelectedTarget = plr
 				RefreshPlayerList()
-				Notify("Target Selected", "Now tracking: " .. plr.Name, 2, "🎯")
+				Notify("Target Selected", "Tracking: " .. plr.Name, 2, "🎯")
 			end)
 
 			row.MouseEnter:Connect(function()
 				if State.SelectedTarget ~= plr then
-					Util.Tween(row, Util.QuartOut(0.18), { BackgroundTransparency = 0.1 })
+					Tween(row, QuartOut(0.18), { BackgroundTransparency = 0.1 })
 				end
 			end)
 			row.MouseLeave:Connect(function()
 				if State.SelectedTarget ~= plr then
-					Util.Tween(row, Util.QuartOut(0.18), { BackgroundTransparency = 0.3 })
+					Tween(row, QuartOut(0.18), { BackgroundTransparency = 0.3 })
 				end
 			end)
 		end
@@ -1863,247 +1473,249 @@ end
 
 RefreshPlayerList()
 
-local lastPlayerCount = #Players:GetPlayers()
+-- Auto-refresh every 3 seconds
 task.spawn(function()
 	while task.wait(3) do
 		if MainFrame.Visible and State.ActiveTab == "Radar" then
-			local currentCount = #Players:GetPlayers()
-			if currentCount ~= lastPlayerCount then
-				lastPlayerCount = currentCount
-				RefreshPlayerList()
-			end
+			RefreshPlayerList()
 		end
 	end
 end)
 
 Players.PlayerAdded:Connect(function(plr)
-	lastPlayerCount = #Players:GetPlayers()
 	RefreshPlayerList()
-	Notify("Player Joined", plr.Name .. " entered.", 3, "👤")
+	Notify("Player Joined", plr.Name .. " entered the server.", 3, "👤")
 end)
 Players.PlayerRemoving:Connect(function(plr)
 	if State.SelectedTarget == plr then
 		State.SelectedTarget = nil
 	end
-	lastPlayerCount = #Players:GetPlayers()
 	RefreshPlayerList()
-	Notify("Player Left", plr.Name .. " left.", 3, "👋")
+	Notify("Player Left", plr.Name .. " left the server.", 3, "👋")
 end)
 
--- ── FAVORITES ──
-FavPageRef = CreatePage("Favorites")
-SectionHeader(FavPageRef, "⭐  Pinned Favorites", 1)
+-- ─── FAVORITES PAGE ───
+favoritesPage = CreatePage("Favorites")
+SectionHeader(favoritesPage, "⭐  Pinned Favorites", 1)
 
-FavContentRef = Instance.new("Frame")
-FavContentRef.Size = UDim2.new(1, 0, 0, 0)
-FavContentRef.AutomaticSize = Enum.AutomaticSize.Y
-FavContentRef.BackgroundTransparency = 1
-FavContentRef.LayoutOrder = 2
-FavContentRef.ZIndex = 4
-FavContentRef.Parent = FavPageRef
+FavsContent = Instance.new("Frame")
+FavsContent.Size = UDim2.new(1, 0, 0, 0)
+FavsContent.AutomaticSize = Enum.AutomaticSize.Y
+FavsContent.BackgroundTransparency = 1
+FavsContent.LayoutOrder = 2
+FavsContent.ZIndex = 4
+FavsContent.Parent = favoritesPage
 
-local FavItemsLayout = Instance.new("UIListLayout")
-FavItemsLayout.Padding = UDim.new(0, 12)
-FavItemsLayout.Parent = FavContentRef
+local FavsLayout = Instance.new("UIListLayout")
+FavsLayout.Padding = UDim.new(0, 12)
+FavsLayout.Parent = FavsContent
 
-local FavEmptyLabel = Instance.new("TextLabel")
-FavEmptyLabel.Size = UDim2.new(1, 0, 0, 60)
-FavEmptyLabel.BackgroundTransparency = 1
-FavEmptyLabel.Text = "Star buttons on other tabs to pin them here ⭐"
-FavEmptyLabel.TextColor3 = Color3.fromRGB(100, 100, 120)
-FavEmptyLabel.Font = Enum.Font.Gotham
-FavEmptyLabel.TextSize = 12
-FavEmptyLabel.TextWrapped = true
-FavEmptyLabel.LayoutOrder = 99
-FavEmptyLabel.ZIndex = 4
-FavEmptyLabel.Parent = FavContentRef
+local FavsEmpty = Instance.new("TextLabel")
+FavsEmpty.Size = UDim2.new(1, 0, 0, 60)
+FavsEmpty.BackgroundTransparency = 1
+FavsEmpty.Text = "Star buttons on other tabs to pin them here ⭐"
+FavsEmpty.TextColor3 = Color3.fromRGB(100, 100, 120)
+FavsEmpty.Font = Enum.Font.Gotham
+FavsEmpty.TextSize = 12
+FavsEmpty.TextWrapped = true
+FavsEmpty.LayoutOrder = 99
+FavsEmpty.ZIndex = 4
+FavsEmpty.Parent = FavsContent
 
--- ── KEYBINDS ──
+-- ─── KEYBINDS PAGE ───
 local KeybindsPage = CreatePage("Keybinds")
 SectionHeader(KeybindsPage, "⌨️  Keybind Manager", 1)
 
-local keybindDefs = {
+local keybindList = {
 	{ id = "kb_open",   label = "Toggle Panel",          defaultKey = Enum.KeyCode.RightBracket },
-	{ id = "kb_tp",     label = "Teleport to Target",    defaultKey = Enum.KeyCode.T },
-	{ id = "kb_autodie",label = "Toggle Auto Die",       defaultKey = Enum.KeyCode.F4 },
-	{ id = "kb_spawn",  label = "Go to Spawn",           defaultKey = Enum.KeyCode.F3 },
+	{ id = "kb_tp",     label = "Teleport to Target",    defaultKey = Enum.KeyCode.T            },
+	{ id = "kb_autodie",label = "Toggle Auto Die",       defaultKey = Enum.KeyCode.F4           },
 }
 
-local assigningKeyId = nil
+local assigningKey = nil
 
-for _, kbDef in ipairs(keybindDefs) do
-	State.Keybinds[kbDef.id] = kbDef.defaultKey
+for _, kb in ipairs(keybindList) do
+	State.Keybinds[kb.id] = kb.defaultKey
 
 	local card = Instance.new("Frame")
-	card.Size = UDim2.new(1, 0, 0, 64)
+	card.Size = UDim2.new(1, 0, 0, 60)
 	card.BackgroundColor3 = Color3.fromHex("#111118")
 	card.BackgroundTransparency = 0.35
 	card.LayoutOrder = 2
 	card.ZIndex = 4
 	card.Parent = KeybindsPage
-	Util.MakeCorner(card, 14)
-	Util.MakeStroke(card, 1, Color3.fromRGB(255, 255, 255), 0.91)
+	MakeCorner(card, 14)
+	MakeStroke(card, 1, Color3.fromRGB(255,255,255), 0.91)
 
-	local cardGlow = Util.MakeGlow(card, 15, CurrentTheme, 0.88)
-	RegisterTheme(cardGlow, "ImageColor3")
-
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, -130, 1, 0)
-	label.Position = UDim2.fromOffset(16, 0)
-	label.BackgroundTransparency = 1
-	label.Text = kbDef.label
-	label.TextColor3 = Color3.fromRGB(220, 220, 240)
-	label.Font = Enum.Font.GothamBold
-	label.TextSize = 13
-	label.TextXAlignment = Enum.TextXAlignment.Left
-	label.ZIndex = 5
-	label.Parent = card
+	local kbLabel = Instance.new("TextLabel")
+	kbLabel.Size = UDim2.new(1, -130, 1, 0)
+	kbLabel.Position = UDim2.fromOffset(16, 0)
+	kbLabel.BackgroundTransparency = 1
+	kbLabel.Text = kb.label
+	kbLabel.TextColor3 = Color3.fromRGB(220, 220, 240)
+	kbLabel.Font = Enum.Font.GothamBold
+	kbLabel.TextSize = 13
+	kbLabel.TextXAlignment = Enum.TextXAlignment.Left
+	kbLabel.ZIndex = 5
+	kbLabel.Parent = card
 
 	local keyBtn = Instance.new("TextButton")
-	keyBtn.Size = UDim2.fromOffset(100, 36)
-	keyBtn.Position = UDim2.new(1, -116, 0.5, -18)
+	keyBtn.Size = UDim2.fromOffset(100, 34)
+	keyBtn.Position = UDim2.new(1, -114, 0.5, -17)
 	keyBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 	keyBtn.BackgroundTransparency = 0.2
-	keyBtn.Text = "[" .. kbDef.defaultKey.Name .. "]"
+	keyBtn.Text = "[" .. kb.defaultKey.Name .. "]"
 	keyBtn.TextColor3 = CurrentTheme
 	keyBtn.Font = Enum.Font.GothamBold
 	keyBtn.TextSize = 11
 	keyBtn.AutoButtonColor = false
 	keyBtn.ZIndex = 5
 	keyBtn.Parent = card
-	Util.MakeCorner(keyBtn, 10)
+	MakeCorner(keyBtn, 10)
 	RegisterTheme(keyBtn, "TextColor3")
 	AddRipple(keyBtn)
 
 	keyBtn.MouseButton1Click:Connect(function()
-		assigningKeyId = kbDef.id
+		assigningKey = kb.id
 		keyBtn.Text = "[ Press Key... ]"
 		keyBtn.TextColor3 = Color3.fromRGB(255, 200, 50)
-		Util.Tween(keyBtn, Util.BackOut(0.25), { Size = UDim2.fromOffset(110, 38) })
-		Notify("Keybind", "Press any key for: " .. kbDef.label, 3, "⌨")
+		Notify("Keybind", "Press any key for: " .. kb.label, 3, "⌨")
 	end)
 
-	keyBtn.MouseEnter:Connect(function()
-		if assigningKeyId ~= kbDef.id then
-			Util.Tween(keyBtn, Util.QuartOut(0.18), { BackgroundTransparency = 0.05 })
-		end
-	end)
-	keyBtn.MouseLeave:Connect(function()
-		if assigningKeyId ~= kbDef.id then
-			Util.Tween(keyBtn, Util.QuartOut(0.18), { BackgroundTransparency = 0.2 })
-		end
-	end)
-
-	State.KeybindActions = State.KeybindActions or {}
-	State.KeybindActions[kbDef.id] = keyBtn
+	State.KeybindActions[kb.id] = keyBtn
 end
 
--- ── THEMES ──
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if assigningKey and input.UserInputType == Enum.UserInputType.Keyboard then
+		State.Keybinds[assigningKey] = input.KeyCode
+		local btn = State.KeybindActions[assigningKey]
+		if btn then
+			btn.Text = "[" .. input.KeyCode.Name .. "]"
+			btn.TextColor3 = CurrentTheme
+		end
+		Notify("Keybind Set", "New key: " .. input.KeyCode.Name, 2.5, "✅")
+		assigningKey = nil
+		return
+	end
+
+	if gpe then return end
+	if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+	-- Handle bound keys
+	if input.KeyCode == State.Keybinds["kb_open"] then
+		if State.IsOpen then
+			-- ClosePanel()
+		else
+			-- OpenPanel()
+		end
+	elseif input.KeyCode == State.Keybinds["kb_tp"] then
+		TeleportToTarget()
+	end
+end)
+
+-- ─── THEMES PAGE ───
 local ThemesPage = CreatePage("Themes")
 SectionHeader(ThemesPage, "🎨  Accent Themes", 1)
 
-local ThemePickerCard = Instance.new("Frame")
-ThemePickerCard.Size = UDim2.new(1, 0, 0, 140)
-ThemePickerCard.BackgroundColor3 = Color3.fromHex("#111118")
-ThemePickerCard.BackgroundTransparency = 0.35
-ThemePickerCard.LayoutOrder = 2
-ThemePickerCard.ZIndex = 4
-ThemePickerCard.Parent = ThemesPage
-Util.MakeCorner(ThemePickerCard, 16)
-Util.MakeStroke(ThemePickerCard, 1, Color3.fromRGB(255, 255, 255), 0.91)
+local ThemeCard = Instance.new("Frame")
+ThemeCard.Size = UDim2.new(1, 0, 0, 130)
+ThemeCard.BackgroundColor3 = Color3.fromHex("#111118")
+ThemeCard.BackgroundTransparency = 0.35
+ThemeCard.LayoutOrder = 2
+ThemeCard.ZIndex = 4
+ThemeCard.Parent = ThemesPage
+MakeCorner(ThemeCard, 16)
+MakeStroke(ThemeCard, 1, Color3.fromRGB(255,255,255), 0.91)
 
 local ThemeHint = Instance.new("TextLabel")
-ThemeHint.Size = UDim2.new(1, -30, 0, 24)
+ThemeHint.Size = UDim2.new(1, -30, 0, 22)
 ThemeHint.Position = UDim2.fromOffset(18, 14)
 ThemeHint.BackgroundTransparency = 1
 ThemeHint.Text = "Choose your accent color"
 ThemeHint.TextColor3 = Color3.fromRGB(140, 140, 160)
 ThemeHint.Font = Enum.Font.Gotham
-ThemeHint.TextSize = 13
+ThemeHint.TextSize = 12
 ThemeHint.TextXAlignment = Enum.TextXAlignment.Left
 ThemeHint.ZIndex = 5
-ThemeHint.Parent = ThemePickerCard
+ThemeHint.Parent = ThemeCard
 
-local ThemeActiveLabel = Instance.new("TextLabel")
-ThemeActiveLabel.Size = UDim2.fromOffset(130, 22)
-ThemeActiveLabel.Position = UDim2.new(1, -145, 0, 16)
-ThemeActiveLabel.BackgroundTransparency = 1
-ThemeActiveLabel.Text = "Active: " .. CurrentThemeName
-ThemeActiveLabel.TextColor3 = CurrentTheme
-ThemeActiveLabel.Font = Enum.Font.GothamBold
-ThemeActiveLabel.TextSize = 11
-ThemeActiveLabel.TextXAlignment = Enum.TextXAlignment.Right
-ThemeActiveLabel.ZIndex = 5
-ThemeActiveLabel.Parent = ThemePickerCard
-RegisterTheme(ThemeActiveLabel, "TextColor3")
+local ThemeActive = Instance.new("TextLabel")
+ThemeActive.Size = UDim2.fromOffset(120, 20)
+ThemeActive.Position = UDim2.new(1, -135, 0, 16)
+ThemeActive.BackgroundTransparency = 1
+ThemeActive.Text = "Active: " .. CurrentThemeName
+ThemeActive.TextColor3 = CurrentTheme
+ThemeActive.Font = Enum.Font.GothamBold
+ThemeActive.TextSize = 11
+ThemeActive.TextXAlignment = Enum.TextXAlignment.Right
+ThemeActive.ZIndex = 5
+ThemeActive.Parent = ThemeCard
+RegisterTheme(ThemeActive, "TextColor3")
 
-local SwatchRow = Instance.new("Frame")
-SwatchRow.Size = UDim2.new(1, -36, 0, 60)
-SwatchRow.Position = UDim2.fromOffset(18, 50)
-SwatchRow.BackgroundTransparency = 1
-SwatchRow.ZIndex = 5
-SwatchRow.Parent = ThemePickerCard
+local ColorRow = Instance.new("Frame")
+ColorRow.Size = UDim2.new(1, -36, 0, 52)
+ColorRow.Position = UDim2.fromOffset(18, 48)
+ColorRow.BackgroundTransparency = 1
+ColorRow.ZIndex = 5
+ColorRow.Parent = ThemeCard
 
-local SwatchLayout = Instance.new("UIListLayout")
-SwatchLayout.FillDirection = Enum.FillDirection.Horizontal
-SwatchLayout.Padding = UDim.new(0, 12)
-SwatchLayout.Parent = SwatchRow
+local ColorLayout = Instance.new("UIListLayout")
+ColorLayout.FillDirection = Enum.FillDirection.Horizontal
+ColorLayout.Padding = UDim.new(0, 10)
+ColorLayout.Parent = ColorRow
 
 for _, theme in ipairs(THEMES) do
-	local swatch = Instance.new("TextButton")
-	swatch.Size = UDim2.fromOffset(48, 48)
-	swatch.BackgroundColor3 = theme.color
-	swatch.Text = ""
-	swatch.AutoButtonColor = false
-	swatch.ZIndex = 5
-	swatch.Parent = SwatchRow
-	Util.MakeCorner(swatch, 24)
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.fromOffset(44, 44)
+	b.BackgroundColor3 = theme.color
+	b.Text = ""
+	b.AutoButtonColor = false
+	b.ZIndex = 5
+	b.Parent = ColorRow
+	MakeCorner(b, 22)
+	AddRipple(b)
 
-	local swatchGlow = Util.MakeGlow(swatch, 20, theme.color, 0.6)
-	AddRipple(swatch)
+	local sel = MakeStroke(b, 2.5, Color3.fromRGB(255,255,255), theme.name == CurrentThemeName and 0 or 1)
 
-	local selOutline = Util.MakeStroke(swatch, 2.5, Color3.fromRGB(255, 255, 255),
-		theme.name == CurrentThemeName and 0 or 1)
-
-	swatch.MouseEnter:Connect(function()
-		Util.Tween(swatch, Util.BackOut(0.25), { Size = UDim2.fromOffset(56, 56) })
-		Util.Tween(swatchGlow, Util.QuartOut(0.2), { ImageTransparency = 0.35 })
+	b.MouseEnter:Connect(function()
+		Tween(b, BackOut(0.2), { Size = UDim2.fromOffset(50, 50) })
 	end)
-	swatch.MouseLeave:Connect(function()
-		Util.Tween(swatch, Util.QuartOut(0.2), { Size = UDim2.fromOffset(48, 48) })
-		Util.Tween(swatchGlow, Util.QuartOut(0.2), { ImageTransparency = 0.6 })
+	b.MouseLeave:Connect(function()
+		Tween(b, QuartOut(0.2), { Size = UDim2.fromOffset(44, 44) })
 	end)
 
-	swatch.MouseButton1Click:Connect(function()
+	b.MouseButton1Click:Connect(function()
 		CurrentThemeName = theme.name
-		CurrentThemeIndex = table.find(THEMES, theme) or 1
-		for _, child in ipairs(SwatchRow:GetChildren()) do
-			if child:IsA("TextButton") then
-				local stroke = child:FindFirstChild("UIStroke")
-				if stroke then Util.Tween(stroke, Util.QuartOut(0.25), { Transparency = 1 }) end
+		-- Remove all selection outlines
+		for _, c in ipairs(ColorRow:GetChildren()) do
+			if c:IsA("TextButton") then
+				local s = c:FindFirstChild("UIStroke")
+				if s then Tween(s, QuartOut(0.25), { Transparency = 1 }) end
 			end
 		end
-		Util.Tween(selOutline, Util.QuartOut(0.25), { Transparency = 0 })
-		ThemeActiveLabel.Text = "Active: " .. theme.name
+		Tween(sel, QuartOut(0.25), { Transparency = 0 })
+
+		ThemeActive.Text = "Active: " .. theme.name
 		ApplyTheme(theme.color, 0.35)
 		Notify("Theme Changed", "Accent set to " .. theme.name, 2.5, "🎨")
 	end)
 end
 
+-- Second row: info card
 local ThemeInfoCard = Instance.new("Frame")
-ThemeInfoCard.Size = UDim2.new(1, 0, 0, 80)
+ThemeInfoCard.Size = UDim2.new(1, 0, 0, 70)
 ThemeInfoCard.BackgroundColor3 = Color3.fromHex("#111118")
 ThemeInfoCard.BackgroundTransparency = 0.4
 ThemeInfoCard.LayoutOrder = 3
 ThemeInfoCard.ZIndex = 4
 ThemeInfoCard.Parent = ThemesPage
-Util.MakeCorner(ThemeInfoCard, 14)
+MakeCorner(ThemeInfoCard, 14)
 
 local ThemeInfoText = Instance.new("TextLabel")
 ThemeInfoText.Size = UDim2.new(1, -30, 1, 0)
 ThemeInfoText.Position = UDim2.fromOffset(16, 0)
 ThemeInfoText.BackgroundTransparency = 1
-ThemeInfoText.Text = "Themes apply globally: orb, scrollbars, toggles, sidebar indicators, strokes, and glows."
+ThemeInfoText.Text = "Themes apply globally to all accents including the orbital button, scrollbars, toggles, and sidebar indicators."
 ThemeInfoText.TextColor3 = Color3.fromRGB(110, 110, 135)
 ThemeInfoText.Font = Enum.Font.Gotham
 ThemeInfoText.TextSize = 11
@@ -2112,9 +1724,11 @@ ThemeInfoText.TextWrapped = true
 ThemeInfoText.ZIndex = 5
 ThemeInfoText.Parent = ThemeInfoCard
 
--- ═══════════════════════════════════════════════════════════════════
--- OPEN / CLOSE PANEL
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- OPEN / CLOSE PANEL LOGIC
+-- ═══════════════════════════════════════════════════════
+local PANEL_W, PANEL_H = 760, 500
+
 local function OpenPanel()
 	if State.IsOpen then return end
 	State.IsOpen = true
@@ -2122,15 +1736,14 @@ local function OpenPanel()
 	MainFrame.Size = UDim2.fromOffset(0, 0)
 	MainFrame.BackgroundTransparency = 1
 
-	Util.Tween(MainFrame, Util.BackOut(0.55), {
+	Tween(MainFrame, BackOut(0.5), {
 		Size = UDim2.fromOffset(PANEL_W, PANEL_H),
 		BackgroundTransparency = 0.06,
 	})
-	Util.Tween(OrbGlowInner, Util.QuartOut(0.3), { ImageTransparency = 0.2 })
-	Util.Tween(OrbGlowOuter, Util.QuartOut(0.3), { ImageTransparency = 0.4 })
-
-	task.delay(0.25, function()
-		SetActiveTab("Combat")
+	Tween(OrbGlow, QuartOut(0.3), { ImageTransparency = 0.2 })
+	SetActiveTab("Combat")
+	task.delay(0.6, function()
+		SwitchPage = SetActiveTab -- expose alias
 	end)
 end
 
@@ -2138,7 +1751,7 @@ local function ClosePanel()
 	if not State.IsOpen then return end
 	State.IsOpen = false
 
-	local tw = TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+	local tw = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
 		Size = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 1,
 	})
@@ -2147,142 +1760,39 @@ local function ClosePanel()
 		MainFrame.Visible = false
 		State.IsMinimized = false
 	end)
-	Util.Tween(OrbGlowInner, Util.QuartOut(0.3), { ImageTransparency = 0.55 })
-	Util.Tween(OrbGlowOuter, Util.QuartOut(0.3), { ImageTransparency = 0.78 })
+	Tween(OrbGlow, QuartOut(0.3), { ImageTransparency = 0.6 })
 end
 
-local function ToggleMin()
+local function ToggleMinimize()
 	State.IsMinimized = not State.IsMinimized
-	local targetH = State.IsMinimized and 68 or PANEL_H
-	Util.Tween(MainFrame, Util.QuartOut(0.4), { Size = UDim2.fromOffset(PANEL_W, targetH) })
+	local targetH = State.IsMinimized and 64 or PANEL_H
+	Tween(MainFrame, QuartOut(0.35), { Size = UDim2.fromOffset(PANEL_W, targetH) })
 end
 
 OpenButton.MouseButton1Click:Connect(function()
 	if State.IsOpen then ClosePanel() else OpenPanel() end
 end)
-CloseButton.MouseButton1Click:Connect(ClosePanel)
-MinButton.MouseButton1Click:Connect(ToggleMin)
+CloseBtn.MouseButton1Click:Connect(ClosePanel)
+MinBtn.MouseButton1Click:Connect(ToggleMinimize)
 
--- ═══════════════════════════════════════════════════════════════════
--- KEYBIND HANDLER (Fixed: empty if/else removed)
--- ═══════════════════════════════════════════════════════════════════
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
-	if assigningKeyId then
-		State.Keybinds[assigningKeyId] = input.KeyCode
-		local btn = State.KeybindActions and State.KeybindActions[assigningKeyId]
-		if btn then
-			btn.Text = "[" .. input.KeyCode.Name .. "]"
-			btn.TextColor3 = CurrentTheme
-			Util.Tween(btn, Util.QuartOut(0.2), { Size = UDim2.fromOffset(100, 36), BackgroundTransparency = 0.2 })
-		end
-		Notify("Keybind Set", "New key: " .. input.KeyCode.Name, 2.5, "✅")
-		assigningKeyId = nil
-		return
-	end
-
-	local key = input.KeyCode
-	if key == State.Keybinds["kb_open"] then
+-- Keybind toggle panel
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == State.Keybinds["kb_open"] then
 		if State.IsOpen then ClosePanel() else OpenPanel() end
-	elseif key == State.Keybinds["kb_tp"] then
-		TeleportToTarget()
-	elseif key == State.Keybinds["kb_spawn"] then
-		GoToSpawn()
 	end
 end)
 
--- ═══════════════════════════════════════════════════════════════════
--- SHIMMER OVERLAY
--- ═══════════════════════════════════════════════════════════════════
-local ShimmerLayer = Instance.new("Frame")
-ShimmerLayer.Size = UDim2.fromScale(1, 1)
-ShimmerLayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-ShimmerLayer.BackgroundTransparency = 1
-ShimmerLayer.BorderSizePixel = 0
-ShimmerLayer.ZIndex = 999
-ShimmerLayer.Parent = MainFrame
-
-local ShimmerGrad = Instance.new("UIGradient")
-ShimmerGrad.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-	ColorSequenceKeypoint.new(0.3, Color3.fromRGB(255, 255, 255)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
-	ColorSequenceKeypoint.new(0.7, Color3.fromRGB(255, 255, 255)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
-})
-ShimmerGrad.Transparency = NumberSequence.new({
-	NumberSequenceKeypoint.new(0, 1),
-	NumberSequenceKeypoint.new(0.4, 0.95),
-	NumberSequenceKeypoint.new(0.5, 0.92),
-	NumberSequenceKeypoint.new(0.6, 0.95),
-	NumberSequenceKeypoint.new(1, 1),
-})
-ShimmerGrad.Rotation = 45
-ShimmerGrad.Parent = ShimmerLayer
-
--- ═══════════════════════════════════════════════════════════════════
--- SINGLE HEARTBEAT LOOP (Consolidated)
--- ═══════════════════════════════════════════════════════════════════
-local fpsCounter   = 0
-local fpsTimer     = 0
-local gradRotation = 0
-
-RunService.Heartbeat:Connect(function(dt)
-	-- Gradient animation
-	gradRotation = (gradRotation + dt * 15) % 360
-	HeaderGrad.Rotation = gradRotation
-
-	-- FPS / Ping update (every 0.5s)
-	fpsCounter = fpsCounter + 1
-	fpsTimer   = fpsTimer + dt
-	if fpsTimer >= 0.5 then
-		local fps = math.round(fpsCounter / fpsTimer)
-		fpsCounter = 0
-		fpsTimer   = 0
-		local ping = math.round(Stats.Network.ServerStatsItem["Data Ping"]:GetValueMilliseconds())
-		FpsDisplay.Text  = "FPS\n" .. fps
-		PingDisplay.Text = "PING\n" .. ping .. "ms"
-
-		FpsDisplay.TextColor3  = fps < 30 and Color3.fromHex("#F87171")
-			or (fps < 55 and Color3.fromHex("#F0C14B") or Color3.fromHex("#34D399"))
-		PingDisplay.TextColor3 = ping > 200 and Color3.fromHex("#F87171")
-			or (ping > 100 and Color3.fromHex("#F0C14B") or Color3.fromHex("#34D399"))
-	end
-
-	-- Particles
-	for i = #Particles, 1, -1 do
-		local p = Particles[i]
-		p.life = p.life + dt
-		if p.life > p.max then
-			local dot = p.dot
-			table.remove(Particles, i)
-			ReturnPooledParticle(dot)
-			SpawnParticle()
-		else
-			local t = p.life / p.max
-			local wobbleOff = math.sin(t * math.pi * 2 * p.wobbleSpeed) * p.wobble
-			p.dot.Position = UDim2.new(
-				p.dot.Position.X.Scale + p.dx + wobbleOff * 0.001,
-				0,
-				p.dot.Position.Y.Scale + p.dy,
-				0
-			)
-			p.dot.BackgroundTransparency = 0.5 + t * 0.45
-		end
-	end
-end)
-
--- ═══════════════════════════════════════════════════════════════════
--- INIT
--- ═══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════
+-- INITIAL STATE
+-- ═══════════════════════════════════════════════════════
 SetActiveTab("Combat")
 
+-- Welcome notification (delayed so it shows after open)
 task.delay(0.5, function()
-	Notify("Elite Panel", "v" .. VERSION .. " loaded. Press ] to toggle.", 4, "👑")
+	Notify("Elite Panel", "v2.0 loaded. Press ] to toggle.", 4, "👑")
 end)
 
--- ═══════════════════════════════════════════════════════════════════
--- END  ·  ELITE EXECUTOR PANEL  v3.0
--- ═══════════════════════════════════════════════════════════════════
+-- =================================================================
+-- END OF ELITE EXECUTOR PANEL v2.0
+-- =================================================================
