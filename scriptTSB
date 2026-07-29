@@ -167,7 +167,6 @@ local function AddRipple(button)
 			ripple:Destroy()
 		end)
 
-		-- secondary ripple burst
 		local burst = Instance.new("Frame")
 		burst.Size = UDim2.fromOffset(0, 0)
 		burst.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -252,7 +251,6 @@ local function Notify(title, message, duration, icon)
 	local stroke = MakeStroke(card, 1.2, CurrentTheme, 0.4)
 	RegisterTheme(stroke, "Color")
 
-	-- Glass overlay
 	local glassOverlay = Instance.new("Frame")
 	glassOverlay.Size = UDim2.fromScale(1, 1)
 	glassOverlay.BackgroundColor3 = Color3.fromHex("#FFFFFF")
@@ -262,7 +260,6 @@ local function Notify(title, message, duration, icon)
 	glassOverlay.Parent = card
 	MakeCorner(glassOverlay, 16)
 
-	-- Glow behind card
 	MakeGlow(card, 40, CurrentTheme, 0.65)
 
 	local accent = Instance.new("Frame")
@@ -306,10 +303,8 @@ local function Notify(title, message, duration, icon)
 	ml.TextWrapped = true
 	ml.Parent = card
 
-	-- Slide in with bounce
 	Tween(card, BackOut(0.5), { Position = UDim2.fromOffset(0, 0) })
 
-	-- Progress bar
 	local bar = Instance.new("Frame")
 	bar.Size = UDim2.new(1, 0, 0, 2)
 	bar.Position = UDim2.new(0, 0, 1, -2)
@@ -336,7 +331,6 @@ OrbFrame.Position = UDim2.new(0, 20, 0.5, -32)
 OrbFrame.BackgroundTransparency = 1
 OrbFrame.Parent = ScreenGui
 
--- Multi-layer glow
 local OrbGlow1 = Instance.new("ImageLabel")
 OrbGlow1.AnchorPoint = Vector2.new(0.5, 0.5)
 OrbGlow1.Position = UDim2.fromScale(0.5, 0.5)
@@ -361,7 +355,6 @@ OrbGlow2.ZIndex = 0
 OrbGlow2.Parent = OrbFrame
 RegisterTheme(OrbGlow2, "ImageColor3")
 
--- Floating animation
 local floatTween
 local function StartFloat()
 	local offsetY = math.random(-4, 4)
@@ -372,7 +365,6 @@ local function StartFloat()
 end
 StartFloat()
 
--- Pulse glow animation
 local function PulseOrb()
 	local pulseInfo = TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
 	Tween(OrbGlow1, pulseInfo, { ImageTransparency = 0.7 })
@@ -432,7 +424,6 @@ MakeCorner(MainFrame, 22)
 local MainStroke = MakeStroke(MainFrame, 1.5, CurrentTheme, 0.45)
 RegisterTheme(MainStroke, "Color")
 
--- Glass backdrop layer
 local GlassLayer = Instance.new("Frame")
 GlassLayer.Size = UDim2.fromScale(1, 1)
 GlassLayer.BackgroundColor3 = Color3.fromHex("#FFFFFF")
@@ -442,7 +433,6 @@ GlassLayer.ZIndex = MainFrame.ZIndex + 1
 GlassLayer.Parent = MainFrame
 MakeCorner(GlassLayer, 22)
 
--- Multi-layer drop shadow
 local MainShadow1 = Instance.new("ImageLabel")
 MainShadow1.AnchorPoint = Vector2.new(0.5, 0.5)
 MainShadow1.Position = UDim2.fromScale(0.5, 0.5)
@@ -515,7 +505,6 @@ for _ = 1, PARTICLE_COUNT do
 	SpawnParticle()
 end
 
--- Particle connection lines
 local connectionLines = {}
 local function UpdateParticleConnections()
 	for i = #connectionLines, 1, -1 do
@@ -528,7 +517,6 @@ local function UpdateParticleConnections()
 end
 
 RunService.Heartbeat:Connect(function(dt)
-	-- Update particles
 	for i = #particleData, 1, -1 do
 		local p = particleData[i]
 		p.life = p.life + dt
@@ -562,7 +550,6 @@ Header.BorderSizePixel = 0
 Header.ZIndex = 5
 Header.Parent = MainFrame
 
--- Glass overlay on header
 local HeaderGlass = Instance.new("Frame")
 HeaderGlass.Size = UDim2.fromScale(1, 1)
 HeaderGlass.BackgroundColor3 = Color3.fromHex("#FFFFFF")
@@ -573,7 +560,6 @@ HeaderGlass.Parent = Header
 MakeCorner(HeaderGlass, 22)
 HeaderGlass.Position = UDim2.fromOffset(0, 0)
 
--- Gradient line at bottom of header
 local HeaderLine = Instance.new("Frame")
 HeaderLine.Size = UDim2.new(1, 0, 0, 1.5)
 HeaderLine.Position = UDim2.new(0, 0, 1, -1.5)
@@ -584,7 +570,6 @@ HeaderLine.ZIndex = 6
 HeaderLine.Parent = Header
 RegisterTheme(HeaderLine, "BackgroundColor3")
 
--- Animated gradient background in header
 local UIGrad = Instance.new("UIGradient")
 UIGrad.Color = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromHex("#0A0A1A")),
@@ -594,14 +579,12 @@ UIGrad.Color = ColorSequence.new({
 UIGrad.Rotation = 0
 UIGrad.Parent = Header
 
--- Animate gradient rotation
 local gradAngle = 0
 RunService.Heartbeat:Connect(function(dt)
 	gradAngle = (gradAngle + dt * 15) % 360
 	UIGrad.Rotation = gradAngle
 end)
 
--- Crown + Title
 local Crown = Instance.new("TextLabel")
 Crown.Size = UDim2.fromOffset(38, 38)
 Crown.Position = UDim2.fromOffset(18, 15)
@@ -624,7 +607,6 @@ TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.ZIndex = 6
 TitleLabel.Parent = Header
 
--- Text glow effect on title
 local TitleGlow = Instance.new("TextLabel")
 TitleGlow.Size = TitleLabel.Size
 TitleGlow.Position = TitleLabel.Position
@@ -652,7 +634,6 @@ SubLabel.ZIndex = 6
 SubLabel.Parent = Header
 RegisterTheme(SubLabel, "TextColor3")
 
--- FPS / Ping HUD - Enhanced
 local HudFrame = Instance.new("Frame")
 HudFrame.Size = UDim2.fromOffset(140, 40)
 HudFrame.Position = UDim2.new(0.5, -70, 0.5, -20)
@@ -661,9 +642,6 @@ HudFrame.BackgroundTransparency = 0.25
 HudFrame.ZIndex = 6
 HudFrame.Parent = Header
 MakeCorner(HudFrame, 12)
-MakeStroke(HudFrame, 1, CurrentTheme, 0.65)
-RegisterTheme(Stroke, "Color")
--- fix: store the stroke reference
 local HudStroke = MakeStroke(HudFrame, 1, CurrentTheme, 0.65)
 RegisterTheme(HudStroke, "Color")
 
@@ -688,7 +666,6 @@ PingLabel.TextSize = 11
 PingLabel.ZIndex = 6
 PingLabel.Parent = HudFrame
 
--- FPS/Ping update loop
 local fpsFrames = 0
 local fpsClock  = 0
 RunService.Heartbeat:Connect(function(dt)
@@ -706,7 +683,6 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 end)
 
--- Window Buttons (Close, Minimize) - Enhanced
 local function MakeWinBtn(icon, x, hoverColor)
 	local btn = Instance.new("TextButton")
 	btn.Size = UDim2.fromOffset(32, 32)
@@ -767,7 +743,6 @@ MakeCorner(SearchBox, 10)
 local SearchStroke = MakeStroke(SearchBox, 1.2, CurrentTheme, 0.65)
 RegisterTheme(SearchStroke, "Color")
 
--- Search glow focus
 SearchBox.Focused:Connect(function()
 	Tween(SearchStroke, QuartOut(0.25), { Transparency = 0.3 })
 	Tween(SearchBox, QuartOut(0.25), { BackgroundTransparency = 0.05 })
@@ -853,7 +828,6 @@ SidebarPad.PaddingLeft = UDim.new(0, 8)
 SidebarPad.PaddingRight = UDim.new(0, 8)
 SidebarPad.Parent = Sidebar
 
--- Active indicator bar on sidebar - Enhanced
 local SidebarIndicator = Instance.new("Frame")
 SidebarIndicator.Size = UDim2.fromOffset(3, 30)
 SidebarIndicator.AnchorPoint = Vector2.new(0, 0.5)
@@ -1040,11 +1014,9 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	MakeCorner(card, 16)
 	MakeStroke(card, 1.2, Color3.fromRGB(255,255,255), 0.91)
 
-	-- Card glow on hover
 	local cardGlow = MakeGlow(card, 20, CurrentTheme, 0.85)
 	RegisterTheme(cardGlow, "ImageColor3")
 
-	-- Favorite star
 	local starBtn = Instance.new("TextButton")
 	starBtn.Size = UDim2.fromOffset(30, 30)
 	starBtn.Position = UDim2.fromOffset(14, 10)
@@ -1057,7 +1029,6 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	starBtn.ZIndex = 6
 	starBtn.Parent = card
 
-	-- Title
 	local titleL = Instance.new("TextLabel")
 	titleL.Size = UDim2.new(1, -110, 0, 24)
 	titleL.Position = UDim2.fromOffset(52, 12)
@@ -1070,7 +1041,6 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	titleL.ZIndex = 5
 	titleL.Parent = card
 
-	-- Desc
 	local descL = Instance.new("TextLabel")
 	descL.Size = UDim2.new(1, -110, 0, 34)
 	descL.Position = UDim2.fromOffset(52, 38)
@@ -1084,7 +1054,6 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	descL.ZIndex = 5
 	descL.Parent = card
 
-	-- Toggle switch - Enhanced
 	local toggle = Instance.new("TextButton")
 	toggle.Size = UDim2.fromOffset(56, 30)
 	toggle.Position = UDim2.new(1, -72, 0.5, -15)
@@ -1103,7 +1072,6 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	circle.Parent = toggle
 	MakeCorner(circle, 12)
 
-	-- Toggle glow
 	local toggleGlow = MakeGlow(toggle, 15, CurrentTheme, 0.8)
 	RegisterTheme(toggleGlow, "ImageColor3")
 
@@ -1126,7 +1094,6 @@ local function CreateToggle(page, id, title, desc, callback, order)
 	AddRipple(toggle)
 	RegisterTheme(toggle, "BackgroundColor3")
 
-	-- Hover card lift
 	card.MouseEnter:Connect(function()
 		Tween(card, QuartOut(0.2), { BackgroundTransparency = 0.1 })
 		Tween(cardGlow, QuartOut(0.25), { ImageTransparency = 0.65 })
@@ -1136,7 +1103,6 @@ local function CreateToggle(page, id, title, desc, callback, order)
 		Tween(cardGlow, QuartOut(0.25), { ImageTransparency = 0.85 })
 	end)
 
-	-- Star / Favorite logic
 	local favCard = nil
 	starBtn.MouseButton1Click:Connect(function()
 		State.Favorites[id] = not State.Favorites[id]
@@ -1177,7 +1143,6 @@ local function CreateActionButton(page, id, icon, label, callback, order)
 	MakeCorner(btn, 14)
 	RegisterTheme(btn, "BackgroundColor3")
 
-	-- Button glow
 	local btnGlow = MakeGlow(btn, 25, CurrentTheme, 0.7)
 	RegisterTheme(btnGlow, "ImageColor3")
 
@@ -1204,9 +1169,10 @@ end
 local healthConnection  = nil
 local isProcessingDeath = false
 
-local function SetupAutoDie()
-	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-	local humanoid = char:WaitForChild("Humanoid")
+local function SetupAutoDie(character)
+	local char = character or LocalPlayer.Character
+	if not char then return end
+	local humanoid = char:FindFirstChild("Humanoid") or char:WaitForChild("Humanoid")
 
 	if healthConnection then
 		healthConnection:Disconnect()
@@ -1220,12 +1186,11 @@ local function SetupAutoDie()
 			if currentHealth < lastHealth and currentHealth > 0 then
 				isProcessingDeath = true
 				task.wait(0.5)
-				pcall(function()
-					if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-						LocalPlayer.Character.Humanoid.Health = 0
-						Notify("Auto Die", "Character reset after taking damage.", 2, "💀")
-					end
-				end)
+				local c = LocalPlayer.Character
+				if c and c:FindFirstChild("Humanoid") then
+					c.Humanoid.Health = 0
+					Notify("Auto Die", "Character reset after taking damage.", 2, "💀")
+				end
 				task.wait(1)
 				isProcessingDeath = false
 			end
@@ -1289,26 +1254,25 @@ local function ClearSpawn()
 	Notify("Clear Spawn", "ล้างจุด Spawn แล้ว", 2, "🗑️")
 end
 
-LocalPlayer.CharacterAdded:Connect(function()
+LocalPlayer.CharacterAdded:Connect(function(newChar)
 	task.wait(0.8)
-	SetupAutoDie()
+	SetupAutoDie(newChar)
 	if State.AutoSpawn and State.SpawnCFrame then
 		task.wait(0.5)
-		pcall(function()
-			local char = LocalPlayer.Character
-			if char then
-				local root = char:FindFirstChild("HumanoidRootPart")
-				if root then
-					root.CFrame = State.SpawnCFrame
-					Notify("Auto Spawn", "เทเลพอร์ตกลับจุด Spawn อัตโนมัติ", 2.5, "📍")
-				end
+		local root = newChar:FindFirstChild("HumanoidRootPart")
+		if root then
+			local success, err = pcall(function()
+				root.CFrame = State.SpawnCFrame
+			end)
+			if success then
+				Notify("Auto Spawn", "เทเลพอร์ตกลับจุด Spawn อัตโนมัติ", 2.5, "📍")
 			end
-		end)
+		end
 	end
 end)
 
 if LocalPlayer.Character then
-	SetupAutoDie()
+	SetupAutoDie(LocalPlayer.Character)
 end
 
 -- ═══════════════════════════════════════════════════════
@@ -1376,7 +1340,6 @@ do
 	local cardStroke = MakeStroke(spawnCard, 1.2, CurrentTheme, 0.55)
 	RegisterTheme(cardStroke, "Color")
 
-	-- Card glow
 	local spawnCardGlow = MakeGlow(spawnCard, 25, CurrentTheme, 0.85)
 	RegisterTheme(spawnCardGlow, "ImageColor3")
 
@@ -1476,7 +1439,12 @@ do
 		b.MouseLeave:Connect(function()
 			Tween(b, QuartOut(0.2), { BackgroundTransparency = 0.1, Size = UDim2.new(0.333, -5, 1, 0) })
 		end)
-		b.MouseButton1Click:Connect(function() pcall(fn) end)
+		b.MouseButton1Click:Connect(function()
+			local ok, err = pcall(fn)
+			if not ok then
+				Notify("Error", tostring(err), 4, "⚠️")
+			end
+		end)
 		return b
 	end
 
@@ -1548,7 +1516,6 @@ SectionHeader(RadarPage, "⚡  Player Radar", 1)
 
 CreateActionButton(RadarPage, "tp_button", "⚡", "Teleport to Selected Target", TeleportToTarget, 2)
 
--- Player list card
 local PlayerListCard = Instance.new("Frame")
 PlayerListCard.Name = "PlayerListCard"
 PlayerListCard.Size = UDim2.new(1, 0, 0, 300)
@@ -1603,7 +1570,6 @@ local function RefreshPlayerList()
 
 			local rowStroke = MakeStroke(row, 1, Color3.fromRGB(255,255,255), 0.93)
 
-			-- Avatar thumbnail
 			local avatar = Instance.new("ImageLabel")
 			avatar.Size = UDim2.fromOffset(36, 36)
 			avatar.Position = UDim2.fromOffset(7, 7)
@@ -1614,7 +1580,6 @@ local function RefreshPlayerList()
 			avatar.Parent = row
 			MakeCorner(avatar, 10)
 
-			-- Online dot
 			local dot = Instance.new("Frame")
 			dot.Size = UDim2.fromOffset(10, 10)
 			dot.Position = UDim2.fromOffset(34, 34)
@@ -1636,7 +1601,6 @@ local function RefreshPlayerList()
 			nameLabel.ZIndex = 6
 			nameLabel.Parent = row
 
-			-- Health bar
 			local healthBar = Instance.new("Frame")
 			healthBar.Size = UDim2.new(1, -110, 0, 5)
 			healthBar.Position = UDim2.fromOffset(52, 32)
@@ -1662,7 +1626,6 @@ local function RefreshPlayerList()
 				end
 			end
 
-			-- Select button
 			local selBtn = Instance.new("TextButton")
 			selBtn.Size = UDim2.fromOffset(54, 30)
 			selBtn.Position = UDim2.new(1, -62, 0.5, -15)
@@ -1773,7 +1736,6 @@ for _, kb in ipairs(keybindList) do
 	MakeCorner(card, 14)
 	MakeStroke(card, 1, Color3.fromRGB(255,255,255), 0.91)
 
-	-- Card glow
 	local kbCardGlow = MakeGlow(card, 15, CurrentTheme, 0.88)
 	RegisterTheme(kbCardGlow, "ImageColor3")
 
@@ -1914,7 +1876,6 @@ for _, theme in ipairs(THEMES) do
 	b.Parent = ColorRow
 	MakeCorner(b, 24)
 
-	-- Color glow
 	local colorGlow = MakeGlow(b, 20, theme.color, 0.6)
 
 	AddRipple(b)
@@ -1946,7 +1907,6 @@ for _, theme in ipairs(THEMES) do
 	end)
 end
 
--- Second row: info card
 local ThemeInfoCard = Instance.new("Frame")
 ThemeInfoCard.Size = UDim2.new(1, 0, 0, 80)
 ThemeInfoCard.BackgroundColor3 = Color3.fromHex("#111118")
@@ -1981,7 +1941,6 @@ local function OpenPanel()
 	MainFrame.Size = UDim2.fromOffset(0, 0)
 	MainFrame.BackgroundTransparency = 1
 
-	-- Staggered open animation
 	Tween(MainFrame, BackOut(0.55), {
 		Size = UDim2.fromOffset(PANEL_W, PANEL_H),
 		BackgroundTransparency = 0.06,
@@ -1989,7 +1948,6 @@ local function OpenPanel()
 	Tween(OrbGlow1, QuartOut(0.3), { ImageTransparency = 0.2 })
 	Tween(OrbGlow2, QuartOut(0.3), { ImageTransparency = 0.4 })
 
-	-- Staggered content reveal
 	task.delay(0.25, function()
 		SetActiveTab("Combat")
 	end)
@@ -2028,7 +1986,6 @@ end)
 CloseBtn.MouseButton1Click:Connect(ClosePanel)
 MinBtn.MouseButton1Click:Connect(ToggleMinimize)
 
--- Keybind toggle panel
 UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
 	if input.KeyCode == State.Keybinds["kb_open"] then
